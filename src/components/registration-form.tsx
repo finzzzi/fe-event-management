@@ -22,6 +22,16 @@ export function RegistrationForm({
               </div>
 
               <div className="grid gap-3">
+                <Label htmlFor="email">Full name</Label>
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="Your full name"
+                  required
+                />
+              </div>
+
+              <div className="grid gap-3">
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
