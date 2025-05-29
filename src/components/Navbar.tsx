@@ -21,7 +21,7 @@ const Navbar = () => {
 
   if (isLoading) {
     return (
-      <nav className="bg-blue-800 p-4 text-white">
+      <nav className="bg-gradient-to-r from-blue-600 to-purple-600 p-4 text-white">
         <div className="container mx-auto flex justify-between items-center">
           <Link
             href="/"
@@ -29,16 +29,20 @@ const Navbar = () => {
           >
             EVENTIO
           </Link>
-          <div>
-            <Skeleton className="h-10 w-23" />
+          <div className="hidden md:block">
+            <Skeleton className="h-10 w-23 bg-gray-200" />
           </div>
+          {/* Mobile: Show menu button instead of skeleton */}
+          <button className="md:hidden text-white">
+            <Menu size={28} />
+          </button>
         </div>
       </nav>
     );
   }
 
   return (
-    <nav className="bg-blue-800 p-4 text-white relative">
+    <nav className="bg-gradient-to-r from-blue-600 to-purple-600 p-4 text-white relative">
       <div className="container mx-auto flex justify-between items-center">
         <Link
           href="/"
@@ -53,7 +57,7 @@ const Navbar = () => {
             <>
               <button
                 onClick={handleLogout}
-                className="font-medium bg-white text-blue-800 px-4 py-2 rounded-lg hover:bg-blue-100 transition-colors"
+                className="font-medium bg-white text-black px-4 py-2 rounded-lg hover:bg-blue-100 transition-colors"
               >
                 Logout
               </button>
@@ -62,13 +66,13 @@ const Navbar = () => {
             <>
               <Link
                 href="/login"
-                className="font-medium hover:text-blue-200 transition-colors"
+                className="font-medium transform hover:scale-105 transition-all duration-200"
               >
                 Login
               </Link>
               <Link
                 href="/register"
-                className="font-medium bg-white text-blue-800 px-4 py-2 rounded-lg hover:bg-blue-100 transition-colors"
+                className="font-medium bg-white text-black px-4 py-2 rounded-lg transform hover:scale-105 transition-all duration-200"
               >
                 Register
               </Link>
@@ -86,7 +90,7 @@ const Navbar = () => {
       </div>
 
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 md:hidden bg-blue-800 border-t border-white shadow-xl">
+        <div className="absolute top-full left-0 right-0 md:hidden bg-gradient-to-r from-blue-600 to-purple-600 border-t border-white shadow-xl">
           <div className="container mx-auto py-3 px-4 flex flex-col space-y-3">
             {token ? (
               <>
