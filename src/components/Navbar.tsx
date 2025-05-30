@@ -1,17 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Search } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
-import { Skeleton } from "@/components/ui/skeleton";
+
+import SearchBar from "./SearchBar";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const { token, logout, isLoading } = useAuth();
 
   const toggleMenu = () => {
     setIsOpen(!isOpen);
+  };
+
+  const toggleSearch = () => {
+    setIsSearchOpen(!isSearchOpen);
   };
 
   const handleLogout = () => {
@@ -21,7 +27,7 @@ const Navbar = () => {
 
   if (isLoading) {
     return (
-      <nav className="bg-gradient-to-r from-blue-600 to-purple-600 p-4 text-white">
+      <nav className="bg-blue-800 p-4 text-white">
         <div className="container mx-auto flex justify-between items-center">
           <Link
             href="/"
@@ -29,20 +35,13 @@ const Navbar = () => {
           >
             EVENTIO
           </Link>
-          <div className="hidden md:block">
-            <Skeleton className="h-10 w-23 bg-gray-200" />
-          </div>
-          {/* Mobile: Show menu button instead of skeleton */}
-          <button className="md:hidden text-white">
-            <Menu size={28} />
-          </button>
         </div>
       </nav>
     );
   }
 
   return (
-    <nav className="bg-gradient-to-r from-blue-600 to-purple-600 p-4 text-white relative">
+    <nav className="bg-blue-800 p-4 text-white relative shadow-lg">
       <div className="container mx-auto flex justify-between items-center">
         <Link
           href="/"
@@ -50,6 +49,11 @@ const Navbar = () => {
         >
           EVENTIO
         </Link>
+
+        {/* Search Bar - Desktop only */}
+        <div className="hidden md:block flex-1 max-w-md mx-8 text-black">
+          <SearchBar />
+        </div>
 
         {/* desktop menu */}
         <div className="hidden md:flex items-center space-x-6">
@@ -80,17 +84,37 @@ const Navbar = () => {
           )}
         </div>
 
-        {/* mobile menu button */}
-        <button
-          onClick={toggleMenu}
-          className="md:hidden text-white hover:text-blue-200 transition-colors"
-        >
-          {isOpen ? <X size={28} /> : <Menu size={28} />}
-        </button>
+        {/* Mobile icons search and menu */}
+        <div className="md:hidden flex items-center space-x-4">
+          <button
+            onClick={toggleSearch}
+            className="text-white hover:text-blue-200 transition-colors"
+          >
+            <Search size={24} />
+          </button>
+          <button
+            onClick={toggleMenu}
+            className="text-white hover:text-blue-200 transition-colors"
+          >
+            {isOpen ? <X size={28} /> : <Menu size={28} />}
+          </button>
+        </div>
       </div>
 
+      {/* Mobile Search Overlay */}
+      {isSearchOpen && (
+        <div className="absolute top-full left-0 right-0 md:hidden bg-blue-800 border-t border-white shadow-xl z-50">
+          <div className="container mx-auto p-4">
+            <div className="text-black">
+              <SearchBar onResultClick={() => setIsSearchOpen(false)} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* show Mobile Menu when click menu icon */}
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 md:hidden bg-gradient-to-r from-blue-600 to-purple-600 border-t border-white shadow-xl">
+        <div className="absolute top-full left-0 right-0 md:hidden bg-blue-800 border-t border-white shadow-xl">
           <div className="container mx-auto py-3 px-4 flex flex-col space-y-3">
             {token ? (
               <>
