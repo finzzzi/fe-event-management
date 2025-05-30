@@ -27,46 +27,22 @@ type Event = {
 
 const UpcomingEvents = () => {
   const [events, setEvents] = useState<Event[]>([]);
-  const [offset, setOffset] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
-  const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
 
-  const fetchEvents = async (resetData = false) => {
-    setLoading(true);
+  const fetchEvents = async () => {
     try {
-      const currentOffset = resetData ? 0 : offset;
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/events/all?limit=3&offset=${currentOffset}`
-      );
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/events/all`);
       const data: Event[] = await res.json();
-
-      if (data.length < 3) {
-        setHasMore(false);
-      }
-
-      if (resetData) {
-        setEvents(data);
-        setOffset(3);
-      } else {
-        setEvents((prev) => [...prev, ...data]);
-        setOffset((prev) => prev + 3);
-      }
+      setEvents(data);
     } catch (error) {
       console.error("Failed to fetch events:", error);
     } finally {
-      setLoading(false);
       setInitialLoading(false);
     }
   };
 
   useEffect(() => {
-    // Reset all states and fetch fresh data
-    setEvents([]);
-    setOffset(0);
-    setHasMore(true);
-    setInitialLoading(true);
-    fetchEvents(true);
+    fetchEvents();
   }, []);
 
   const EventSkeleton = () => (
@@ -109,8 +85,8 @@ const UpcomingEvents = () => {
         {/* Events Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
           {initialLoading
-            ? // Show 3 skeleton cards during initial loading
-              Array(3)
+            ? // Show skeleton cards during initial loading
+              Array(6)
                 .fill(0)
                 .map((_, index) => <EventSkeleton key={index} />)
             : events.map((event) => (
@@ -195,26 +171,6 @@ const UpcomingEvents = () => {
                 </div>
               ))}
         </div>
-
-        {/* Load More Button */}
-        {hasMore && !initialLoading && (
-          <div className="text-center">
-            <button
-              onClick={() => fetchEvents(false)}
-              className="inline-flex items-center px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-lg cursor-pointer hover:from-blue-700 hover:to-purple-700 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-              disabled={loading}
-            >
-              {loading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Loading...
-                </>
-              ) : (
-                "See More Events"
-              )}
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );

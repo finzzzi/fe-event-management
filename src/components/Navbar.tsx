@@ -21,7 +21,7 @@ const Navbar = () => {
 
   if (isLoading) {
     return (
-      <nav className="bg-gradient-to-r from-blue-600 to-purple-600 p-4 text-white">
+      <nav className="bg-blue-800 p-4 text-white">
         <div className="container mx-auto flex justify-between items-center">
           <Link
             href="/"
@@ -42,7 +42,7 @@ const Navbar = () => {
   }
 
   return (
-    <nav className="bg-gradient-to-r from-blue-600 to-purple-600 p-4 text-white relative">
+    <nav className="bg-blue-800 p-4 text-white relative">
       <div className="container mx-auto flex justify-between items-center">
         <Link
           href="/"
