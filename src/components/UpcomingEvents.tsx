@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Calendar, MapPin, Users, User, Banknote } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Calendar, MapPin, Users, User, Banknote, Filter } from "lucide-react";
 import {
   Carousel,
   CarouselContent,
@@ -16,6 +18,7 @@ import Link from "next/link";
 const UpcomingEvents = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
   const fetchEvents = async () => {
     try {
@@ -32,6 +35,20 @@ const UpcomingEvents = () => {
   useEffect(() => {
     fetchEvents();
   }, []);
+
+  // Get unique categories
+  const categories = events.reduce((acc, event) => {
+    if (!acc.some((cat) => cat.name === event.category.name)) {
+      acc.push({ id: event.categoryId, name: event.category.name });
+    }
+    return acc;
+  }, [] as Array<{ id: number; name: string }>);
+
+  // Filter events based on selected category
+  const filteredEvents =
+    selectedCategory === "all"
+      ? events
+      : events.filter((event) => event.category.name === selectedCategory);
 
   const EventSkeleton = () => (
     <div className="bg-white rounded-xl border border-gray-200 w-80">
@@ -70,6 +87,57 @@ const UpcomingEvents = () => {
           </h1>
         </div>
 
+        {/* Category Filter Chips */}
+        {!initialLoading && events.length > 0 && (
+          <div className="mb-5 md:px-10">
+            <div className="flex items-center gap-3 mb-4">
+              <Filter className="h-5 w-5 text-gray-600" />
+              <h3 className="text-lg font-semibold text-gray-800">
+                Filter by Category
+              </h3>
+            </div>
+            <ScrollArea className="w-full whitespace-nowrap">
+              <div className="flex gap-2 pb-2">
+                <Badge
+                  variant={selectedCategory === "all" ? "default" : "secondary"}
+                  className={`cursor-pointer px-4 py-2 text-sm font-medium  ${
+                    selectedCategory === "all"
+                      ? "bg-blue-800 hover:bg-blue-900 text-white"
+                      : "bg-gray-200 hover:bg-gray-300 text-gray-700"
+                  }`}
+                  onClick={() => setSelectedCategory("all")}
+                >
+                  All Categories ({events.length})
+                </Badge>
+                {categories.map((category) => (
+                  <Badge
+                    key={category.id}
+                    variant={
+                      selectedCategory === category.name
+                        ? "default"
+                        : "secondary"
+                    }
+                    className={`cursor-pointer px-4 py-2 text-sm font-medium  whitespace-nowrap ${
+                      selectedCategory === category.name
+                        ? "bg-blue-800 hover:bg-blue-900 text-white"
+                        : "bg-gray-200 hover:bg-gray-300 text-gray-700"
+                    }`}
+                    onClick={() => setSelectedCategory(category.name)}
+                  >
+                    {category.name} (
+                    {
+                      events.filter((e) => e.category.name === category.name)
+                        .length
+                    }
+                    )
+                  </Badge>
+                ))}
+              </div>
+              <ScrollBar orientation="horizontal" />
+            </ScrollArea>
+          </div>
+        )}
+
         {/* Events Carousel */}
         <div className="relative md:m-10">
           {initialLoading ? (
@@ -100,7 +168,7 @@ const UpcomingEvents = () => {
               className="w-full"
             >
               <CarouselContent className="-ml-2 md:-ml-4">
-                {events.map((event) => (
+                {filteredEvents.map((event) => (
                   <CarouselItem
                     key={event.id}
                     className="pl-2 md:pl-4 basis-85"
