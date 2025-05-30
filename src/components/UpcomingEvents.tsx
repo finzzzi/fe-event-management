@@ -10,27 +10,8 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel";
-
-type Event = {
-  id: number;
-  userId: number;
-  name: string;
-  categoryId: number;
-  price: number;
-  quota: number;
-  startDate: string;
-  endDate: string;
-  location: string;
-  description: string;
-  createdAt: string;
-  updatedAt: string;
-  category: {
-    name: string;
-  };
-  organizer: {
-    name: string;
-  };
-};
+import { Event } from "@/types/event";
+import Link from "next/link";
 
 const UpcomingEvents = () => {
   const [events, setEvents] = useState<Event[]>([]);
@@ -53,7 +34,7 @@ const UpcomingEvents = () => {
   }, []);
 
   const EventSkeleton = () => (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm w-80">
+    <div className="bg-white rounded-xl border border-gray-200 w-80">
       <div className="p-6 space-y-4">
         <Skeleton className="h-13 w-3/4" />
         <div className="space-y-3">
@@ -124,86 +105,88 @@ const UpcomingEvents = () => {
                     key={event.id}
                     className="pl-2 md:pl-4 basis-85"
                   >
-                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm cursor-pointer h-full flex flex-col w-80">
-                      {/* Event Content */}
-                      <div className="p-6 flex flex-col flex-1 space-y-3">
-                        <h2 className="text-xl font-bold text-gray-800 mb-3 line-clamp-2 group-hover:text-blue-600 transition-colors">
-                          {event.name}
-                        </h2>
+                    <Link href={`/event/${event.id}`} className="block h-full">
+                      <div className="bg-white rounded-xl border border-gray-200 cursor-pointer  h-full flex flex-col w-80">
+                        {/* Event Content */}
+                        <div className="p-6 flex flex-col flex-1 space-y-3">
+                          <h2 className="text-xl font-bold text-gray-800 mb-3 line-clamp-2 group-hover:text-blue-600 transition-colors">
+                            {event.name}
+                          </h2>
 
-                        <div className="space-y-3 mb-4">
-                          {/* Date Range */}
-                          <div className="flex items-center text-gray-600">
-                            <Calendar className="h-4 w-4 mr-2" />
-                            <span className="text-sm">
-                              {(() => {
-                                const startDate = new Date(
-                                  event.startDate
-                                ).toLocaleDateString("en-US", {
-                                  day: "numeric",
-                                  month: "short",
-                                  year: "numeric",
-                                });
+                          <div className="space-y-3 mb-4">
+                            {/* Date Range */}
+                            <div className="flex items-center text-gray-600">
+                              <Calendar className="h-4 w-4 mr-2" />
+                              <span className="text-sm">
+                                {(() => {
+                                  const startDate = new Date(
+                                    event.startDate
+                                  ).toLocaleDateString("en-US", {
+                                    day: "numeric",
+                                    month: "short",
+                                    year: "numeric",
+                                  });
 
-                                const endDate = new Date(
-                                  event.endDate
-                                ).toLocaleDateString("en-US", {
-                                  day: "numeric",
-                                  month: "short",
-                                  year: "numeric",
-                                });
+                                  const endDate = new Date(
+                                    event.endDate
+                                  ).toLocaleDateString("en-US", {
+                                    day: "numeric",
+                                    month: "short",
+                                    year: "numeric",
+                                  });
 
-                                return startDate === endDate
-                                  ? startDate
-                                  : `${startDate} - ${endDate}`;
-                              })()}
+                                  return startDate === endDate
+                                    ? startDate
+                                    : `${startDate} - ${endDate}`;
+                                })()}
+                              </span>
+                            </div>
+
+                            {/* Location */}
+                            <div className="flex items-center text-gray-600">
+                              <MapPin className="h-4 w-4 mr-2 " />
+                              <span className="text-sm">{event.location}</span>
+                            </div>
+
+                            {/* Organizer */}
+                            <div className="flex items-center text-gray-600">
+                              <User className="h-4 w-4 mr-2 " />
+                              <span className="text-sm">
+                                {event.organizer.name}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Description */}
+                          <p className="text-gray-600 text-sm line-clamp-3 mb-4 flex-1">
+                            {event.description}
+                          </p>
+
+                          {/* Category */}
+                          <div className="flex items-center text-white">
+                            <span className="bg-gray-700 px-3 py-1 rounded-full text-sm font-medium">
+                              {event.category.name}
                             </span>
                           </div>
 
-                          {/* Location */}
-                          <div className="flex items-center text-gray-600">
-                            <MapPin className="h-4 w-4 mr-2 " />
-                            <span className="text-sm">{event.location}</span>
-                          </div>
-
-                          {/* Organizer */}
-                          <div className="flex items-center text-gray-600">
-                            <User className="h-4 w-4 mr-2 " />
-                            <span className="text-sm">
-                              {event.organizer.name}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Description */}
-                        <p className="text-gray-600 text-sm line-clamp-3 mb-4 flex-1">
-                          {event.description}
-                        </p>
-
-                        {/* Category */}
-                        <div className="flex items-center text-gray-100">
-                          <span className="bg-black/90 px-3 py-1 rounded-full text-sm font-medium">
-                            {event.category.name}
-                          </span>
-                        </div>
-
-                        {/* Price and Quota - Always at bottom */}
-                        <div className="flex justify-between items-center pt-4 border-t border-gray-100 mt-auto">
-                          <div className="flex items-center">
-                            <Banknote className="h-4 w-4 mr-2 text-purple-500" />
-                            <span className="font-bold text-lg text-gray-800">
-                              Rp{event.price.toLocaleString("id-ID")}
-                            </span>
-                          </div>
-                          <div className="flex items-center text-gray-600">
-                            <Users className="h-4 w-4 mr-1 text-purple-500" />
-                            <span className="text-sm font-medium">
-                              {event.quota} seats left
-                            </span>
+                          {/* Price and Quota - Always at bottom */}
+                          <div className="flex justify-between items-center pt-4 border-t border-gray-100 mt-auto">
+                            <div className="flex items-center">
+                              <Banknote className="h-4 w-4 mr-2 text-blue-800" />
+                              <span className="font-bold text-lg text-gray-800">
+                                Rp{event.price.toLocaleString("id-ID")}
+                              </span>
+                            </div>
+                            <div className="flex items-center text-gray-600">
+                              <Users className="h-4 w-4 mr-1 text-blue-800" />
+                              <span className="text-sm font-medium">
+                                {event.quota} seats left
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
+                    </Link>
                   </CarouselItem>
                 ))}
               </CarouselContent>
