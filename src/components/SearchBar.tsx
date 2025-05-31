@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect } from "react";
-import { Search, X, Calendar, MapPin, Loader2 } from "lucide-react";
+import { Search, X, Calendar, MapPin, Loader2, Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useEventSearch } from "@/hooks/useEventSearch";
 import Link from "next/link";
@@ -115,12 +115,10 @@ const SearchBar = ({ onResultClick }: SearchBarProps) => {
                         <span>{event.location}</span>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-blue-800">
-                        Rp{event.price.toLocaleString("id-ID")}
-                      </span>
-                      <span className="text-xs bg-gray-700 text-white px-2 py-1 rounded-full">
-                        {event.category.name}
+                    <div className="flex items-center text-gray-500">
+                      <Users className="h-3 w-3 mr-1 " />
+                      <span className="text-sm font-medium ">
+                        {event.quota} seats left
                       </span>
                     </div>
                   </div>
