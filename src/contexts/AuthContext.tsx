@@ -77,7 +77,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     name: string,
     email: string,
     password: string,
-    referral?: string
+    referral_code?: string
   ): Promise<void> => {
     try {
       const response = await fetch(
@@ -91,7 +91,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             name,
             email,
             password,
-            ...(referral && { referral }),
+            ...(referral_code && { referral_code }),
           }),
         }
       );
