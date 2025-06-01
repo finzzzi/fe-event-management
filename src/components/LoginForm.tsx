@@ -6,8 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 
 export function LoginForm({
@@ -15,13 +14,22 @@ export function LoginForm({
   ...props
 }: React.ComponentProps<"div">) {
   const { login } = useAuth();
-  const router = useRouter();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [returnUrl, setReturnUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    // get return URL from localStorage
+    const savedReturnUrl = localStorage.getItem("returnUrl");
+    if (savedReturnUrl) {
+      setReturnUrl(savedReturnUrl);
+      localStorage.removeItem("returnUrl");
+    }
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -36,8 +44,7 @@ export function LoginForm({
     setIsLoading(true);
 
     try {
-      await login(formData.email, formData.password);
-      router.push("/"); // Redirect to home page after successful login
+      await login(formData.email, formData.password, returnUrl || undefined);
     } catch (err: Error | unknown) {
       setError(err instanceof Error ? err.message : "Error when logging in");
     } finally {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Menu, X, Search } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,6 +11,59 @@ const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const { token, logout, isLoading } = useAuth();
+
+  // Function to decode JWT and check if it's expired
+  const isTokenExpired = (token: string) => {
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      const currentTime = Date.now() / 1000;
+      return payload.exp < currentTime;
+    } catch {
+      return true;
+    }
+  };
+
+  // Function to verify token with API
+  const verifyToken = async (token: string) => {
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/verify`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      return response.ok;
+    } catch {
+      return false;
+    }
+  };
+
+  // Check token validity on component mount and when token changes
+  useEffect(() => {
+    const checkTokenValidity = async () => {
+      if (token) {
+        // check if token is expired locally
+        if (isTokenExpired(token)) {
+          logout();
+          return;
+        }
+
+        // verify with API
+        const isValid = await verifyToken(token);
+        if (!isValid) {
+          logout();
+        }
+      }
+    };
+
+    if (!isLoading && token) {
+      checkTokenValidity();
+    }
+  }, [token, isLoading, logout]);
 
   const toggleMenu = () => {
     setIsOpen(!isOpen);

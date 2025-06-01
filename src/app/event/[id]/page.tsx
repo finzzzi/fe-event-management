@@ -17,6 +17,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/contexts/AuthContext";
+import { transactionService } from "@/services/transactionService";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -24,6 +28,8 @@ interface Props {
 
 const DetailEventPage = ({ params }: Props) => {
   const { id } = use(params);
+  const { token, redirectToLogin } = useAuth();
+  const router = useRouter();
   const [event, setEvent] = useState<Event | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -46,6 +52,32 @@ const DetailEventPage = ({ params }: Props) => {
   useEffect(() => {
     fetchEvents();
   }, []);
+
+  const handleBuyTicket = async () => {
+    // check if user is logged in
+    if (!token) {
+      toast.error("Please log in to purchase tickets");
+
+      const currentUrl = window.location.pathname;
+      redirectToLogin(currentUrl);
+      return;
+    }
+
+    // create transaction
+    try {
+      const response = await transactionService.createTransaction({
+        eventId: parseInt(id),
+        quantity: quantity,
+      });
+
+      router.push(`/transaction/${response.data.id}`);
+    } catch (error) {
+      console.error("Failed to create transaction:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to create transaction"
+      );
+    }
+  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
@@ -352,6 +384,7 @@ const DetailEventPage = ({ params }: Props) => {
                 <Button
                   className="w-full bg-blue-800 hover:bg-blue-700 text-white font-semibold py-3 text-lg"
                   size="lg"
+                  onClick={handleBuyTicket}
                 >
                   Buy Ticket
                 </Button>

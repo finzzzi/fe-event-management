@@ -2,11 +2,12 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 interface AuthContextType {
   token: string | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, returnUrl?: string) => Promise<void>;
   register: (
     name: string,
     email: string,
@@ -14,6 +15,7 @@ interface AuthContextType {
     referral?: string
   ) => Promise<void>;
   logout: () => void;
+  redirectToLogin: (returnUrl?: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,19 +33,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
 
   // Check for existing token on mount
   useEffect(() => {
     const savedToken = localStorage.getItem("token");
     if (savedToken) {
       setToken(savedToken);
-      // You could also decode the JWT to get user info or make an API call to verify
-      // For now, we'll assume the token is valid if it exists
     }
     setIsLoading(false);
   }, []);
 
-  const login = async (email: string, password: string): Promise<void> => {
+  const login = async (
+    email: string,
+    password: string,
+    returnUrl?: string
+  ): Promise<void> => {
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/auth/login`,
@@ -67,6 +72,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       localStorage.setItem("token", data.token);
       toast.success("Login successful. Welcome back!");
+
+      // Redirect to return URL or home page
+      if (returnUrl) {
+        router.push(returnUrl);
+      } else {
+        router.push("/");
+      }
     } catch (error) {
       console.error("Login error:", error);
       throw error;
@@ -124,12 +136,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     toast.success("You have been logged out");
   };
 
+  const redirectToLogin = (returnUrl?: string) => {
+    if (returnUrl) {
+      localStorage.setItem("returnUrl", returnUrl);
+    }
+    router.push("/login");
+  };
+
   const value = {
     token,
     isLoading,
     login,
     register,
     logout,
+    redirectToLogin,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
