@@ -18,7 +18,7 @@ export default function EventListPage() {
     if (isLoading) return;
 
     if (!token) {
-      redirectToLogin("/event");
+      redirectToLogin("/admin/event");
       return;
     }
 

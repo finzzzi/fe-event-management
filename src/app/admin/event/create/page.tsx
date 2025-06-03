@@ -24,7 +24,7 @@ export default function CreateEventPage() {
 
   useEffect(() => {
     if (!isLoading && !token) {
-      redirectToLogin("/event/create");
+      redirectToLogin("/admin/event/create");
     }
 
     const fetchCategories = async () => {

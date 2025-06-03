@@ -25,7 +25,7 @@ export default function EditEventPage() {
 
   useEffect(() => {
     if (!isLoading && !token) {
-      redirectToLogin(`/event/edit/${id}`);
+      redirectToLogin(`/admin/event/edit/${id}`);
     }
 
     const fetchEvent = async () => {
