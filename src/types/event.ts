@@ -17,6 +17,14 @@ export interface Event {
   organizer: {
     name: string;
   };
+  vouchers?: {
+    id: number;
+    name: string;
+    nominal: number;
+    quota: number;
+    startDate: string;
+    endDate: string;
+  };
 }
 
 export interface EventCategory {

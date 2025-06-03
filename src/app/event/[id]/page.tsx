@@ -17,8 +17,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { transactionService } from "@/services/transactionService";
+import { userService, UserProfileResponse } from "@/services/userService";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -33,6 +43,15 @@ const DetailEventPage = ({ params }: Props) => {
   const [event, setEvent] = useState<Event | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [showDialog, setShowDialog] = useState(false);
+  const [userProfile, setUserProfile] = useState<
+    UserProfileResponse["data"] | null
+  >(null);
+  const [usePoints, setUsePoints] = useState(false);
+  const [pointsAmount, setPointsAmount] = useState(0);
+  const [useCoupon, setUseCoupon] = useState(false);
+  const [useVoucher, setUseVoucher] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const fetchEvents = async () => {
     try {
@@ -49,34 +68,119 @@ const DetailEventPage = ({ params }: Props) => {
     }
   };
 
+  const fetchUserProfile = async () => {
+    if (!token) return;
+
+    try {
+      const response = await userService.getUserProfile();
+      setUserProfile(response.data);
+    } catch (error) {
+      console.error("Failed to fetch user profile:", error);
+    }
+  };
+
   useEffect(() => {
     fetchEvents();
   }, []);
 
+  useEffect(() => {
+    if (token) {
+      fetchUserProfile();
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (event && event.vouchers && !isVoucherValid(event.vouchers)) {
+      setUseVoucher(false);
+    }
+  }, [event]);
+
   const handleBuyTicket = async () => {
     // check if user is logged in
     if (!token) {
-      toast.error("Please log in to purchase tickets");
-
-      const currentUrl = window.location.pathname;
-      redirectToLogin(currentUrl);
+      setShowDialog(true);
       return;
     }
 
-    // create transaction
+    // fetch user profile
+    if (!userProfile) {
+      await fetchUserProfile();
+    }
+
+    setShowDialog(true);
+  };
+
+  const calculateTotalPrice = () => {
+    if (!event) return 0;
+
+    const basePrice = event.price * quantity;
+    let discount = 0;
+
+    // calculate points discount
+    if (usePoints && pointsAmount > 0) {
+      discount += pointsAmount;
+    }
+
+    // calculate coupon discount
+    if (useCoupon && userProfile?.coupons && userProfile.coupons.length > 0) {
+      discount += userProfile.coupons[0].nominal;
+    }
+
+    // calculate voucher discount
+    if (useVoucher && event.vouchers) {
+      discount += event.vouchers.nominal;
+    }
+
+    return Math.max(basePrice - discount, 0);
+  };
+
+  const handleConfirmPurchase = async () => {
+    if (!event || !token) return;
+
+    setIsProcessing(true);
+
     try {
-      const response = await transactionService.createTransaction({
+      const requestData = {
         eventId: parseInt(id),
         quantity: quantity,
-      });
+        use_points: usePoints,
+        points_amount: usePoints ? pointsAmount : 0,
+        use_coupon: useCoupon,
+        use_voucher: useVoucher,
+      };
 
-      router.push(`/transaction/${response.data.id}`);
+      const response = await transactionService.createTransaction(requestData);
+
+      toast.success(
+        "Transaksi berhasil dibuat! Silakan upload bukti pembayaran."
+      );
+
+      // navigate to payment proof upload page
+      router.push(`/transaction/${response.data.transactionId}/payment-proof`);
     } catch (error) {
       console.error("Failed to create transaction:", error);
       toast.error(
         error instanceof Error ? error.message : "Failed to create transaction"
       );
+    } finally {
+      setIsProcessing(false);
+      setShowDialog(false);
     }
+  };
+
+  const resetDialog = () => {
+    setUsePoints(false);
+    setPointsAmount(0);
+    setUseCoupon(false);
+    setUseVoucher(false);
+    setShowDialog(false);
+  };
+
+  const isVoucherValid = (voucher: Event["vouchers"]) => {
+    if (!voucher) return false;
+    const now = new Date();
+    const endDate = new Date(voucher.endDate);
+    return endDate > now && voucher.quota > 0;
   };
 
   const formatDate = (dateString: string) => {
@@ -269,7 +373,7 @@ const DetailEventPage = ({ params }: Props) => {
             <Card>
               <CardHeader>
                 <CardTitle className="text-2xl text-gray-800">
-                  Detail Event
+                  Event Details
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -393,6 +497,230 @@ const DetailEventPage = ({ params }: Props) => {
           </div>
         </div>
       </div>
+
+      {showDialog && !token && (
+        <Dialog open={showDialog} onOpenChange={resetDialog}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Login Required</DialogTitle>
+              <DialogDescription>
+                You need to login first to buy tickets.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="blue"
+                onClick={() => {
+                  const currentUrl = window.location.pathname;
+                  resetDialog();
+                  redirectToLogin(currentUrl);
+                }}
+              >
+                Login Now
+              </Button>
+              <Button variant="outline" onClick={resetDialog}>
+                Cancel
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {showDialog && token && (
+        <Dialog open={showDialog} onOpenChange={resetDialog}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Confirm Purchase</DialogTitle>
+              <DialogDescription>
+                Select the discount option you want to use
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-6 py-4">
+              {/* Event Info */}
+              <div className="space-y-2">
+                <h4 className="font-medium">{event?.name}</h4>
+                <p className="text-sm text-gray-600">
+                  {quantity} tickets × Rp{event?.price.toLocaleString("id-ID")}
+                </p>
+                <p className="text-lg font-semibold">
+                  Subtotal: Rp{totalPrice.toLocaleString("id-ID")}
+                </p>
+              </div>
+
+              {/* Points Option */}
+              {userProfile?.points && userProfile.points.total > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="use-points"
+                      checked={usePoints}
+                      onCheckedChange={(checked) => {
+                        setUsePoints(!!checked);
+                        if (!checked) setPointsAmount(0);
+                      }}
+                    />
+                    <Label htmlFor="use-points" className="text-sm font-medium">
+                      Use Points (Available:{" "}
+                      {userProfile.points.total.toLocaleString("id-ID")})
+                    </Label>
+                  </div>
+                  {usePoints && (
+                    <div className="ml-6">
+                      <Label htmlFor="points-amount" className="text-sm">
+                        Points Amount
+                      </Label>
+                      <Input
+                        id="points-amount"
+                        type="number"
+                        min="0"
+                        max={Math.min(userProfile.points.total, totalPrice)}
+                        value={pointsAmount}
+                        onChange={(e) => {
+                          const value = parseInt(e.target.value) || 0;
+                          const maxPoints = Math.min(
+                            userProfile.points.total,
+                            totalPrice
+                          );
+                          setPointsAmount(Math.min(value, maxPoints));
+                        }}
+                        className="mt-1"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Coupon Option */}
+              {userProfile?.coupons && userProfile.coupons.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="use-coupon"
+                      checked={useCoupon}
+                      onCheckedChange={(checked) => setUseCoupon(!!checked)}
+                    />
+                    <Label htmlFor="use-coupon" className="text-sm font-medium">
+                      Use Coupon (Rp
+                      {userProfile.coupons[0].nominal.toLocaleString("id-ID")})
+                    </Label>
+                  </div>
+                  <p className="text-xs text-gray-500 ml-6">
+                    Valid until: {formatDate(userProfile.coupons[0].expiredAt)}
+                  </p>
+                </div>
+              )}
+
+              {/* Voucher Option */}
+              {event.vouchers && isVoucherValid(event.vouchers) ? (
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="use-voucher"
+                      checked={useVoucher}
+                      onCheckedChange={(checked) => setUseVoucher(!!checked)}
+                    />
+                    <Label
+                      htmlFor="use-voucher"
+                      className="text-sm font-medium"
+                    >
+                      Gunakan Voucher &quot;{event.vouchers.name}&quot; (Rp
+                      {event.vouchers.nominal.toLocaleString("id-ID")})
+                    </Label>
+                  </div>
+                  <p className="text-xs text-gray-500 ml-6">
+                    Valid until: {formatDate(event.vouchers.endDate)} | Quota:{" "}
+                    {event.vouchers.quota}
+                  </p>
+                </div>
+              ) : event.vouchers && !isVoucherValid(event.vouchers) ? (
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="use-voucher"
+                      checked={false}
+                      disabled={true}
+                    />
+                    <Label
+                      htmlFor="use-voucher"
+                      className="text-sm font-medium text-gray-400"
+                    >
+                      Voucher &quot;{event.vouchers.name}&quot; is expired or
+                      out of stock
+                    </Label>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="use-voucher"
+                      checked={false}
+                      disabled={true}
+                    />
+                    <Label
+                      htmlFor="use-voucher"
+                      className="text-sm font-medium text-gray-400"
+                    >
+                      No voucher available for this event
+                    </Label>
+                  </div>
+                </div>
+              )}
+
+              {/* Price Calculation */}
+              <div className="border-t pt-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Subtotal:</span>
+                  <span>Rp{totalPrice.toLocaleString("id-ID")}</span>
+                </div>
+                {usePoints && pointsAmount > 0 && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Points Discount:</span>
+                    <span>-Rp{pointsAmount.toLocaleString("id-ID")}</span>
+                  </div>
+                )}
+                {useCoupon &&
+                  userProfile?.coupons &&
+                  userProfile.coupons.length > 0 && (
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span>Coupon Discount:</span>
+                      <span>
+                        -Rp
+                        {userProfile.coupons[0].nominal.toLocaleString("id-ID")}
+                      </span>
+                    </div>
+                  )}
+                {useVoucher && event.vouchers && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Voucher Discount:</span>
+                    <span>
+                      -Rp{event.vouchers.nominal.toLocaleString("id-ID")}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between text-lg font-bold border-t pt-2">
+                  <span>Total Payment:</span>
+                  <span>Rp{calculateTotalPrice().toLocaleString("id-ID")}</span>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={resetDialog}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleConfirmPurchase}
+                disabled={isProcessing}
+                className="bg-blue-800 hover:bg-blue-700"
+              >
+                {isProcessing ? "Processing..." : "Pay Now"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };
