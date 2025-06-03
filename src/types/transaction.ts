@@ -1,12 +1,16 @@
 export interface CreateTransactionRequest {
   eventId: number;
   quantity: number;
+  use_points?: boolean;
+  points_amount?: number;
+  use_coupon?: boolean;
+  use_voucher?: boolean;
 }
 
 export interface CreateTransactionResponse {
   message: string;
   data: {
-    id: number;
+    transactionId: number;
     event: {
       name: string;
       price: number;
@@ -14,8 +18,14 @@ export interface CreateTransactionResponse {
     };
     quantity: number;
     basePrice: number;
-    totalPrice: number;
     totalDiscount: number;
+    finalPrice: number;
+    discountsApplied: {
+      points: number;
+      coupon: boolean;
+      voucher: boolean;
+    };
+    nextStep: string;
   };
 }
 
