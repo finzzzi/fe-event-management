@@ -99,3 +99,42 @@ export interface ConfirmTransactionResponse {
 export interface UploadPaymentProofResponse {
   message: string;
 }
+
+// User Transactions Types
+export interface TransactionStatus {
+  id: number;
+  name:
+    | "WaitingForPayment"
+    | "WaitingForAdminConfirmation"
+    | "Done"
+    | "Rejected"
+    | "Expired"
+    | "Canceled";
+}
+
+export interface UserTransaction {
+  id: number;
+  userId: number;
+  eventId: number;
+  transactionStatusId: number;
+  quantity: number;
+  totalDiscount: number;
+  totalPrice: number;
+  paymentProof: string | null;
+  createdAt: string;
+  updatedAt: string;
+  event: {
+    id: number;
+    name: string;
+    price: number;
+    location: string;
+    startDate: string;
+    endDate: string;
+  };
+  transactionStatus: TransactionStatus;
+}
+
+export interface UserTransactionsResponse {
+  message: string;
+  data: UserTransaction[];
+}
