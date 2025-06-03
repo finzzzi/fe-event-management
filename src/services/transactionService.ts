@@ -6,6 +6,7 @@ import {
   ApplyDiscountResponse,
   ConfirmTransactionResponse,
   UploadPaymentProofResponse,
+  UserTransactionsResponse,
 } from "@/types/transaction";
 
 const getAuthHeaders = () => {
@@ -24,6 +25,23 @@ const getAuthHeadersForFile = () => {
 };
 
 export const transactionService = {
+  async getUserTransactions(): Promise<UserTransactionsResponse> {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/transactions/user`,
+      {
+        method: "GET",
+        headers: getAuthHeaders(),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || "Failed to get user transactions");
+    }
+
+    return response.json();
+  },
+
   async createTransaction(
     data: CreateTransactionRequest
   ): Promise<CreateTransactionResponse> {
