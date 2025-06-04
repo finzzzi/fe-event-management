@@ -1,6 +1,12 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -15,6 +21,7 @@ interface AuthContextType {
   token: string | null;
   user: User | null;
   isLoading: boolean;
+  isInitialized: boolean;
   login: (email: string, password: string, returnUrl?: string) => Promise<void>;
   register: (
     name: string,
@@ -42,61 +49,86 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
   const router = useRouter();
 
   // Check for existing token and user on mount
   useEffect(() => {
-    const savedToken = localStorage.getItem("token");
-    const savedUser = localStorage.getItem("user");
-    if (savedToken && savedUser) {
-      setToken(savedToken);
-      setUser(JSON.parse(savedUser));
-    }
-    setIsLoading(false);
+    const initializeAuth = async () => {
+      try {
+        const savedToken = localStorage.getItem("token");
+        const savedUser = localStorage.getItem("user");
+
+        if (savedToken) {
+          setToken(savedToken);
+
+          if (savedUser && savedUser !== "undefined") {
+            try {
+              setUser(JSON.parse(savedUser));
+            } catch (e) {
+              console.error("Failed to parse user data", e);
+              localStorage.removeItem("user");
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Auth initialization error:", error);
+      } finally {
+        setIsLoading(false);
+        setIsInitialized(true);
+      }
+    };
+
+    initializeAuth();
   }, []);
 
-  const login = async (
-    email: string,
-    password: string,
-    returnUrl?: string
-  ): Promise<void> => {
-    try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/auth/login`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ email, password }),
+  const login = useCallback(
+    async (
+      email: string,
+      password: string,
+      returnUrl?: string
+    ): Promise<void> => {
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/auth/login`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ email, password }),
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || "Login failed");
         }
-      );
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Login failed");
+        const data = await response.json();
+
+        setToken(data.token);
+        setUser(data.user);
+
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+        toast.success("Login successful. Welcome back!");
+
+        // Redirect to return URL or home page
+        if (returnUrl) {
+          router.push(returnUrl);
+        } else {
+          router.push("/");
+        }
+      } catch (error) {
+        console.error("Login error:", error);
+        throw error;
+      } finally {
+        setIsLoading(false);
       }
-
-      const data = await response.json();
-
-      setToken(data.token);
-      setUser(data.user);
-
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
-      toast.success("Login successful. Welcome back!");
-
-      // Redirect to return URL or home page
-      if (returnUrl) {
-        router.push(returnUrl);
-      } else {
-        router.push("/");
-      }
-    } catch (error) {
-      console.error("Login error:", error);
-      throw error;
-    }
-  };
+    },
+    []
+  );
 
   const register = async (
     name: string,
@@ -163,6 +195,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     token,
     user,
     isLoading,
+    isInitialized,
     login,
     register,
     logout,

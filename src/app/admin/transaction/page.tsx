@@ -1,21 +1,26 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-// import axios from "axios";
 import TransactionList from "@/components/admin/TransactionList";
 import { useAuth } from "@/contexts/AuthContext";
-// import LoadingSpinner from '../../components/common/LoadingSpinner';
+import LoadingSpinner from "@/components/ui/loadingspinner";
 import { UserTransaction } from "@/types/transaction";
 
 const TransactionsPage: React.FC = () => {
   const [transactions, setTransactions] = useState<UserTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const { token, user, isLoading: authLoading } = useAuth();
+  const { token, user, isInitialized, isLoading: authLoading } = useAuth();
 
   useEffect(() => {
     const fetchTransactions = async () => {
+      if (!token || !user || user.role !== "EventOrganizer") {
+        setLoading(false);
+        return;
+      }
+
       try {
+        setLoading(true);
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/transactions/eo`,
           {
@@ -30,6 +35,7 @@ const TransactionsPage: React.FC = () => {
         }
 
         const data = await response.json();
+
         const transformedTransactions: UserTransaction[] = data.map(
           (tx: any) => ({
             ...tx,
@@ -47,6 +53,7 @@ const TransactionsPage: React.FC = () => {
         );
 
         setTransactions(transformedTransactions);
+        setError("");
       } catch (err) {
         setError("Failed to load transactions");
         console.error(err);
@@ -55,12 +62,18 @@ const TransactionsPage: React.FC = () => {
       }
     };
 
-    if (token && user?.role === "EventOrganizer") {
+    if (isInitialized) {
       fetchTransactions();
-    } else {
-      setLoading(false);
     }
-  }, [token, user]);
+  }, [token, user, isInitialized]);
+
+  if (!isInitialized || authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner size="medium" />
+      </div>
+    );
+  }
 
   if (!user || user.role !== "EventOrganizer") {
     return (
@@ -88,7 +101,7 @@ const TransactionsPage: React.FC = () => {
 
         {loading ? (
           <div className="flex justify-center mt-12">
-            {/* <LoadingSpinner size="large" /> */}
+            <LoadingSpinner size="large" />
           </div>
         ) : error ? (
           <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
