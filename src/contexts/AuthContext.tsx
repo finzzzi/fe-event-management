@@ -4,8 +4,16 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
+interface User {
+  id: Number;
+  name: string;
+  email: string;
+  role: string;
+}
+
 interface AuthContextType {
   token: string | null;
+  user: User | null;
   isLoading: boolean;
   login: (email: string, password: string, returnUrl?: string) => Promise<void>;
   register: (
@@ -32,14 +40,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [token, setToken] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
-  // Check for existing token on mount
+  // Check for existing token and user on mount
   useEffect(() => {
     const savedToken = localStorage.getItem("token");
-    if (savedToken) {
+    const savedUser = localStorage.getItem("user");
+    if (savedToken && savedUser) {
       setToken(savedToken);
+      setUser(JSON.parse(savedUser));
     }
     setIsLoading(false);
   }, []);
@@ -69,8 +80,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const data = await response.json();
 
       setToken(data.token);
+      setUser(data.user);
 
       localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
       toast.success("Login successful. Welcome back!");
 
       // Redirect to return URL or home page
@@ -116,7 +129,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const data = await response.json();
 
       setToken(data.token);
+      setUser(data.user);
 
+      localStorage.setItem("user", JSON.stringify(data.user));
       localStorage.setItem("token", data.token);
       toast.success(
         <div className="flex flex-col">
@@ -133,6 +148,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const logout = () => {
     setToken(null);
     localStorage.removeItem("token");
+    localStorage.removeItem("user");
     toast.success("You have been logged out");
   };
 
@@ -145,6 +161,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const value = {
     token,
+    user,
     isLoading,
     login,
     register,
