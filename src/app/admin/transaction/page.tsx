@@ -5,12 +5,14 @@ import TransactionList from "@/components/admin/TransactionList";
 import { useAuth } from "@/contexts/AuthContext";
 import LoadingSpinner from "@/components/ui/loadingspinner";
 import { UserTransaction } from "@/types/transaction";
+import { toast } from "sonner";
 
 const TransactionsPage: React.FC = () => {
   const [transactions, setTransactions] = useState<UserTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const { token, user, isInitialized, isLoading: authLoading } = useAuth();
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     const fetchTransactions = async () => {
@@ -65,7 +67,57 @@ const TransactionsPage: React.FC = () => {
     if (isInitialized) {
       fetchTransactions();
     }
-  }, [token, user, isInitialized]);
+  }, [token, user, isInitialized, refreshKey]);
+
+  const handleAccept = async (transactionId: number) => {
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/transactions/${transactionId}/accept`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to accept transaction");
+      }
+
+      toast.success("Transaction accepted");
+      setRefreshKey((prev) => prev + 1); // Refresh transaction list
+    } catch (error: any) {
+      console.error("Error accepting transaction:", error);
+      toast.error(error.message || "Failed to accept transaction");
+    }
+  };
+
+  const handleReject = async (transactionId: number) => {
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/transactions/${transactionId}/reject`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to reject transaction");
+      }
+
+      toast.success("Transaction rejected");
+      setRefreshKey((prev) => prev + 1); // Refresh transaction list
+    } catch (error: any) {
+      console.error("Error rejecting transaction:", error);
+      toast.error(error.message || "Failed to reject transaction");
+    }
+  };
 
   if (!isInitialized || authLoading) {
     return (
@@ -149,7 +201,11 @@ const TransactionsPage: React.FC = () => {
             </p>
           </div>
         ) : (
-          <TransactionList transactions={transactions} />
+          <TransactionList
+            transactions={transactions}
+            onAccept={handleAccept}
+            onReject={handleReject}
+          />
         )}
       </div>
     </div>

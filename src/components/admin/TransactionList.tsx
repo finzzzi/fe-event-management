@@ -4,10 +4,37 @@ import { UserTransaction } from "../../types/transaction";
 
 interface TransactionListProps {
   transactions: UserTransaction[];
+  onAccept: (transactionId: number) => Promise<void>;
+  onReject: (transactionId: number) => Promise<void>;
 }
 
-const TransactionList: React.FC<TransactionListProps> = ({ transactions }) => {
+const TransactionList: React.FC<TransactionListProps> = ({
+  transactions,
+  onAccept,
+  onReject,
+}) => {
   const [selectedProof, setSelectedProof] = useState<string | null>(null);
+  const [loadingStates, setLoadingStates] = useState<
+    Record<number, "accept" | "reject" | null>
+  >({});
+
+  const handleAccept = async (transactionId: number) => {
+    setLoadingStates((prev) => ({ ...prev, [transactionId]: "accept" }));
+    try {
+      await onAccept(transactionId);
+    } finally {
+      setLoadingStates((prev) => ({ ...prev, [transactionId]: null }));
+    }
+  };
+
+  const handleReject = async (transactionId: number) => {
+    setLoadingStates((prev) => ({ ...prev, [transactionId]: "reject" }));
+    try {
+      await onReject(transactionId);
+    } finally {
+      setLoadingStates((prev) => ({ ...prev, [transactionId]: null }));
+    }
+  };
 
   const handleViewProof = (proofUrl: string | null) => {
     if (!proofUrl) {
@@ -140,11 +167,23 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions }) => {
                   {transaction.transactionStatus.name ===
                     "WaitingForAdminConfirmation" && (
                     <>
-                      <button className="mr-2 bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600">
-                        Accept
+                      <button
+                        onClick={() => handleAccept(transaction.id)}
+                        disabled={loadingStates[transaction.id] === "accept"}
+                        className="mr-2 bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600"
+                      >
+                        {loadingStates[transaction.id] === "accept"
+                          ? "Processing..."
+                          : "Accept"}
                       </button>
-                      <button className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600">
-                        Reject
+                      <button
+                        onClick={() => handleReject(transaction.id)}
+                        disabled={loadingStates[transaction.id] === "reject"}
+                        className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 disabled:opacity-50"
+                      >
+                        {loadingStates[transaction.id] === "reject"
+                          ? "Processing..."
+                          : "Reject"}
                       </button>
                     </>
                   )}
