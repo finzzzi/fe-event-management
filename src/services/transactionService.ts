@@ -3,35 +3,10 @@ import {
   CreateTransactionResponse,
   UploadPaymentProofResponse,
   UserTransactionsResponse,
+  CreateReviewRequest,
+  CreateReviewResponse,
+  GetReviewResponse,
 } from "@/types/transaction";
-
-interface CreateReviewRequest {
-  eventId: number;
-  rating: number;
-  comment: string;
-  transactionId: number;
-}
-
-interface CreateReviewResponse {
-  message: string;
-  data: ReviewData;
-}
-
-interface ReviewData {
-  id: number;
-  userId: number;
-  eventId: number;
-  rating: number;
-  comment: string;
-  transactionId: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface GetReviewResponse {
-  message: string;
-  data: ReviewData | null;
-}
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem("token");

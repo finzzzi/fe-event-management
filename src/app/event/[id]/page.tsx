@@ -28,7 +28,8 @@ import {
 } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { transactionService } from "@/services/transactionService";
-import { userService, UserProfileResponse } from "@/services/userService";
+import { userService } from "@/services/userService";
+import { UserProfileResponse } from "@/types/user";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
