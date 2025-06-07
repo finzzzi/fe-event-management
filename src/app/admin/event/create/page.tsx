@@ -71,8 +71,10 @@ export default function CreateEventPage() {
 
       toast.success("Event created successfully!");
       router.push("/event");
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to create event"
+      );
     }
   };
 

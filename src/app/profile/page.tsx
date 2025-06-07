@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface UserProfile {
   name: string;
@@ -26,6 +27,7 @@ const UserProfilePage = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [resettingPassword, setResettingPassword] = useState(false);
+  const { token, isLoading, redirectToLogin } = useAuth();
 
   const [editForm, setEditForm] = useState({
     name: "",
@@ -48,10 +50,6 @@ const UserProfilePage = () => {
           },
         }
       );
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch profile data");
-      }
 
       const data = await response.json();
       setProfile(data);
@@ -177,6 +175,12 @@ const UserProfilePage = () => {
   useEffect(() => {
     fetchProfile();
   }, []);
+
+  useEffect(() => {
+    if (!isLoading && !token) {
+      redirectToLogin("/profile");
+    }
+  }, [token, isLoading, redirectToLogin]);
 
   if (loading) {
     return (
