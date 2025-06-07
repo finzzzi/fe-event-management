@@ -1,21 +1,5 @@
-export interface UserProfileResponse {
-  message: string;
-  data: {
-    id: number;
-    name: string;
-    email: string;
-    role: string;
-    referralCode: string;
-    points: {
-      total: number;
-    };
-    coupons: Array<{
-      id: number;
-      nominal: number;
-      expiredAt: string;
-    }>;
-  };
-}
+import { OrganizerProfile } from "@/types/event";
+import { UserProfileResponse } from "@/types/user";
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem("token");
@@ -38,6 +22,18 @@ export const userService = {
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.message || "Failed to get user profile");
+    }
+
+    return response.json();
+  },
+
+  async fetchOrganizerProfile(organizerId: string): Promise<OrganizerProfile> {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/users/organizer/${organizerId}`
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch organizer profile.");
     }
 
     return response.json();
