@@ -5,8 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import Image from "next/image";
 
 export function LoginForm({
@@ -18,9 +26,13 @@ export function LoginForm({
     email: "",
     password: "",
   });
-  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [returnUrl, setReturnUrl] = useState<string | null>(null);
+
+  // reset password states
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [isResetLoading, setIsResetLoading] = useState(false);
 
   useEffect(() => {
     // get return URL from localStorage
@@ -40,15 +52,47 @@ export function LoginForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
     setIsLoading(true);
 
     try {
       await login(formData.email, formData.password, returnUrl || undefined);
     } catch (err: Error | unknown) {
-      setError(err instanceof Error ? err.message : "Error when logging in");
+      toast.error(err instanceof Error ? err.message : "Error when logging in");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsResetLoading(true);
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/reset-password`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email: resetEmail }),
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        toast.success(data.message);
+        setResetEmail("");
+        setIsResetDialogOpen(false);
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.message || "Failed to send reset password link");
+      }
+    } catch {
+      toast.error("An error occurred while sending reset link");
+    } finally {
+      setIsResetLoading(false);
     }
   };
 
@@ -65,12 +109,6 @@ export function LoginForm({
                 </p>
               </div>
 
-              {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-                  {error}
-                </div>
-              )}
-
               <div className="grid gap-3">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -86,12 +124,58 @@ export function LoginForm({
               <div className="grid gap-3">
                 <div className="flex items-center">
                   <Label htmlFor="password">Password</Label>
-                  <a
-                    href="#"
-                    className="ml-auto text-sm underline-offset-2 hover:underline"
+                  <Dialog
+                    open={isResetDialogOpen}
+                    onOpenChange={setIsResetDialogOpen}
                   >
-                    Forgot your password?
-                  </a>
+                    <DialogTrigger asChild>
+                      <button
+                        type="button"
+                        className="ml-auto text-sm underline-offset-2 hover:underline"
+                      >
+                        Forgot your password?
+                      </button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Reset Password</DialogTitle>
+                      </DialogHeader>
+                      <form
+                        onSubmit={handleResetPassword}
+                        className="space-y-4"
+                      >
+                        <div className="space-y-2">
+                          <Label htmlFor="reset-email">Email</Label>
+                          <Input
+                            id="reset-email"
+                            type="email"
+                            placeholder="Enter your email"
+                            value={resetEmail}
+                            onChange={(e) => setResetEmail(e.target.value)}
+                            required
+                          />
+                        </div>
+                        <div className="flex gap-3">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setIsResetDialogOpen(false)}
+                            className="flex-1"
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            type="submit"
+                            variant="blue"
+                            disabled={isResetLoading}
+                            className="flex-1"
+                          >
+                            {isResetLoading ? "Sending..." : "Reset Password"}
+                          </Button>
+                        </div>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
                 </div>
                 <Input
                   id="password"

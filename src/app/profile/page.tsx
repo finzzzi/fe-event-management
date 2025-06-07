@@ -25,6 +25,7 @@ const UserProfilePage = () => {
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [resettingPassword, setResettingPassword] = useState(false);
 
   const [editForm, setEditForm] = useState({
     name: "",
@@ -139,6 +140,40 @@ const UserProfilePage = () => {
     setError(null);
   };
 
+  const handleResetPassword = async () => {
+    if (!profile?.email) {
+      toast.error("No email found for reset password");
+      return;
+    }
+
+    setResettingPassword(true);
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/reset-password`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email: profile.email }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success(data.message || "Reset link has been sent to your email");
+      } else {
+        toast.error(data.message || "Failed to send reset password link");
+      }
+    } catch {
+      toast.error("An error occurred while sending reset link");
+    } finally {
+      setResettingPassword(false);
+    }
+  };
+
   useEffect(() => {
     fetchProfile();
   }, []);
@@ -231,6 +266,27 @@ const UserProfilePage = () => {
                   <Label htmlFor="display-email">Email</Label>
                   <div className="p-3 bg-muted rounded-md border">
                     <p className="text-foreground">{profile?.email}</p>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-medium text-foreground">
+                        Password
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        Send a reset link to your email to change your password
+                      </p>
+                    </div>
+                    <Button
+                      onClick={handleResetPassword}
+                      disabled={resettingPassword}
+                      variant="outline"
+                      size="sm"
+                    >
+                      {resettingPassword ? "Sending..." : "Reset Password"}
+                    </Button>
                   </div>
                 </div>
               </div>
