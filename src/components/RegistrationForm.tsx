@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
@@ -14,7 +14,7 @@ export function RegistrationForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
-  const { register } = useAuth();
+  const { token, register } = useAuth();
   const router = useRouter();
   const [formData, setFormData] = useState({
     name: "",
@@ -51,6 +51,12 @@ export function RegistrationForm({
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (token) {
+      router.push("/");
+    }
+  }, [token]);
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>

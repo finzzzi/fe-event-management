@@ -6,6 +6,7 @@ import { transactionService } from "@/services/transactionService";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Select,
   SelectContent,
@@ -32,6 +33,7 @@ const MyTicket = () => {
   >([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const { token, isLoading, redirectToLogin } = useAuth();
 
   const statusMapping = {
     WaitingForPayment: {
@@ -59,6 +61,12 @@ const MyTicket = () => {
       color: "bg-orange-100 text-orange-800 border-orange-300",
     },
   };
+
+  useEffect(() => {
+    if (!isLoading && !token) {
+      redirectToLogin("/ticket");
+    }
+  }, [token, isLoading, redirectToLogin]);
 
   useEffect(() => {
     fetchUserTransactions();

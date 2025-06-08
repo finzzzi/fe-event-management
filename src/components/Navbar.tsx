@@ -1,15 +1,27 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Menu, X, Search } from "lucide-react";
+import { Menu, X, Search, User, Ticket, UserCheck, Plus } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 
 import SearchBar from "./SearchBar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+interface UserData {
+  role: string;
+}
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [userData, setUserData] = useState<UserData | null>(null);
   const { token, logout, isLoading } = useAuth();
 
   // Function to decode JWT and check if it's expired
@@ -42,6 +54,28 @@ const Navbar = () => {
     }
   };
 
+  // Function to fetch user data
+  const fetchUserData = async (token: string) => {
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/user`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      if (response.ok) {
+        const result = await response.json();
+        setUserData(result.data);
+      }
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+    }
+  };
+
   // Check token validity on component mount and when token changes
   useEffect(() => {
     const checkTokenValidity = async () => {
@@ -56,6 +90,9 @@ const Navbar = () => {
         const isValid = await verifyToken(token);
         if (!isValid) {
           logout();
+        } else {
+          // fetch user data if token is valid
+          await fetchUserData(token);
         }
       }
     };
@@ -76,6 +113,39 @@ const Navbar = () => {
   const handleLogout = () => {
     logout();
     setIsOpen(false); // Close mobile menu after logout
+  };
+
+  const handleSwitchRole = async () => {
+    if (!token || !userData) return;
+
+    const newRole =
+      userData.role === "EventOrganizer" ? "Customer" : "EventOrganizer";
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/switch-role`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            role: newRole,
+          }),
+        }
+      );
+
+      if (response.ok) {
+        // Update userData with new role
+        setUserData((prev) => (prev ? { ...prev, role: newRole } : null));
+        setIsOpen(false); // Close mobile menu if open
+      } else {
+        console.error("Failed to switch role");
+      }
+    } catch (error) {
+      console.error("Error switching role:", error);
+    }
   };
 
   if (isLoading) {
@@ -112,12 +182,52 @@ const Navbar = () => {
         <div className="hidden md:flex items-center space-x-6">
           {token ? (
             <>
-              <button
-                onClick={handleLogout}
-                className="font-medium bg-white text-black px-4 py-2 rounded-lg hover:bg-blue-100 transition-colors"
-              >
-                Logout
-              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger className="font-medium bg-white text-black px-4 py-2 rounded-lg hover:bg-blue-100 transition-colors flex items-center gap-2">
+                  <Menu size={18} />
+                  Menu
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem asChild>
+                    <Link href="/profile" className="flex items-center gap-2">
+                      <User size={16} />
+                      Profile
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    {userData?.role === "EventOrganizer" ? (
+                      <Link
+                        href="/admin/event/create"
+                        className="flex items-center gap-2"
+                      >
+                        <Plus size={16} />
+                        Create Event
+                      </Link>
+                    ) : (
+                      <Link href="/ticket" className="flex items-center gap-2">
+                        <Ticket size={16} />
+                        My Ticket
+                      </Link>
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="flex items-center gap-2 cursor-pointer"
+                    onClick={handleSwitchRole}
+                  >
+                    <UserCheck size={16} />
+                    {userData?.role === "EventOrganizer"
+                      ? "Switch as Customer"
+                      : "Switch as Event Organizer"}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={handleLogout}
+                    className="text-red-600 hover:text-red-700 focus:text-red-700"
+                  >
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </>
           ) : (
             <>
@@ -171,9 +281,46 @@ const Navbar = () => {
           <div className="container mx-auto py-3 px-4 flex flex-col space-y-3">
             {token ? (
               <>
+                <Link
+                  href="/profile"
+                  className="font-medium transition-colors text-right flex items-center justify-end gap-2"
+                  onClick={toggleMenu}
+                >
+                  <User size={16} />
+                  Profile
+                </Link>
+                {userData?.role === "EventOrganizer" ? (
+                  <Link
+                    href="/admin/event/create"
+                    className="font-medium transition-colors text-right flex items-center justify-end gap-2"
+                    onClick={toggleMenu}
+                  >
+                    <Plus size={16} />
+                    Create Event
+                  </Link>
+                ) : (
+                  <Link
+                    href="/ticket"
+                    className="font-medium transition-colors text-right flex items-center justify-end gap-2"
+                    onClick={toggleMenu}
+                  >
+                    <Ticket size={16} />
+                    My Ticket
+                  </Link>
+                )}
+                <button
+                  className="font-medium transition-colors text-right flex items-center justify-end gap-2 cursor-pointer"
+                  onClick={handleSwitchRole}
+                >
+                  <UserCheck size={16} />
+                  {userData?.role === "EventOrganizer"
+                    ? "Switch as Customer"
+                    : "Switch as Event Organizer"}
+                </button>
+                <hr className="border-white/30" />
                 <button
                   onClick={handleLogout}
-                  className="font-medium hover:text-blue-200 transition-colors text-right"
+                  className="font-medium transition-colors text-right text-red-300"
                 >
                   Logout
                 </button>
