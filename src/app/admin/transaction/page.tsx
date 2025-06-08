@@ -249,7 +249,7 @@ const TransactionsPage: React.FC = () => {
   if (!isInitialized || authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner size="medium" />
+        <LoadingSpinner size="large" />
       </div>
     );
   }
@@ -310,11 +310,16 @@ const TransactionsPage: React.FC = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="WaitingForPayment">
+                      Waiting for Payment
+                    </SelectItem>
                     <SelectItem value="WaitingForAdminConfirmation">
                       Pending
                     </SelectItem>
                     <SelectItem value="Done">Accepted</SelectItem>
                     <SelectItem value="Rejected">Rejected</SelectItem>
+                    <SelectItem value="Expired">Expired</SelectItem>
+                    <SelectItem value="Canceled">Canceled</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -324,7 +329,7 @@ const TransactionsPage: React.FC = () => {
           <CardContent>
             {loading ? (
               <div className="flex justify-center py-20">
-                <LoadingSpinner size="medium" />
+                <LoadingSpinner size="large" />
               </div>
             ) : error ? (
               <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
