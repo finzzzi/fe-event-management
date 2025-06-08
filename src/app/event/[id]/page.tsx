@@ -151,14 +151,14 @@ const DetailEventPage = ({ params }: Props) => {
         use_voucher: useVoucher,
       };
 
-      const response = await transactionService.createTransaction(requestData);
+      await transactionService.createTransaction(requestData);
 
       toast.success(
         "Transaksi berhasil dibuat! Silakan upload bukti pembayaran."
       );
 
-      // navigate to payment proof upload page
-      router.push(`/transaction/${response.data.transactionId}/payment-proof`);
+      // navigate to ticket page
+      router.push(`/ticket`);
     } catch (error) {
       console.error("Failed to create transaction:", error);
       toast.error(

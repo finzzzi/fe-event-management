@@ -137,7 +137,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const redirectToLogin = (returnUrl?: string) => {
-    if (returnUrl) {
+    if (returnUrl && !localStorage.getItem("returnUrl")) {
       localStorage.setItem("returnUrl", returnUrl);
     }
     router.push("/login");

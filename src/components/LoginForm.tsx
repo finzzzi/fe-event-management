@@ -41,13 +41,13 @@ export function LoginForm({
     const savedReturnUrl = localStorage.getItem("returnUrl");
     if (savedReturnUrl) {
       setReturnUrl(savedReturnUrl);
-      localStorage.removeItem("returnUrl");
     }
   }, []);
 
   useEffect(() => {
     if (token) {
-      router.push("/");
+      router.push(returnUrl || "/");
+      localStorage.removeItem("returnUrl");
     }
   }, [token]);
 

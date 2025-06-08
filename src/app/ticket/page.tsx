@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CountdownTimer } from "@/components/ui/countdown-timer";
 import {
   Ticket,
   Calendar,
@@ -205,13 +206,13 @@ const MyTicket = () => {
                 <Ticket className="h-16 w-16 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-xl font-semibold text-gray-600 mb-2">
                   {statusFilter === "all"
-                    ? "No Ticket"
-                    : "No Ticket with this status"}
+                    ? "Tidak Ada Tiket"
+                    : "Tidak Ada Tiket dengan Status Ini"}
                 </h3>
                 <p className="text-gray-500">
                   {statusFilter === "all"
-                    ? "You haven't bought any tickets yet. Start exploring interesting events!"
-                    : "No tickets with the selected status."}
+                    ? "Anda belum membeli tiket apapun. Mulai jelajahi event menarik!"
+                    : "Tidak ada tiket dengan status yang dipilih."}
                 </p>
               </CardContent>
             </Card>
@@ -295,10 +296,25 @@ const MyTicket = () => {
                     {transaction.transactionStatus.name ===
                       "WaitingForPayment" && (
                       <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                        <div className="flex items-center space-x-2">
-                          <Clock className="h-4 w-4 text-yellow-600" />
-                          <p className="text-sm text-yellow-800">
-                            Waiting for payment - Click to upload payment proof
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <Clock className="h-4 w-4 text-yellow-600" />
+                            <p className="text-sm text-yellow-800">
+                              Waiting for payment - Click to upload payment
+                              proof
+                            </p>
+                          </div>
+                          <CountdownTimer
+                            createdAt={transaction.createdAt}
+                            onExpire={() => {
+                              toast.warning(
+                                "Payment time has expired. Transaction will be automatically canceled."
+                              );
+                            }}
+                          />
+                          <p className="text-xs text-yellow-700">
+                            ⚠️ Upload payment proof in 2 hours or transaction
+                            will be automatically canceled
                           </p>
                         </div>
                       </div>
@@ -310,7 +326,7 @@ const MyTicket = () => {
                         <div className="flex items-center space-x-2">
                           <Clock className="h-4 w-4 text-blue-600" />
                           <p className="text-sm text-blue-800">
-                            Payment proof has been uploaded, waiting for
+                            Payment proof has been uploaded, waiting for admin
                             confirmation
                           </p>
                         </div>
