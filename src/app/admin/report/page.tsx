@@ -22,6 +22,11 @@ import {
   ReportData,
   YearlyReportItem,
 } from "@/types/report";
+import {
+  AccessDenied,
+  EmptyState,
+  ErrorDisplay,
+} from "@/components/admin/StandardComponents";
 
 // Register Chart.js components
 ChartJS.register(
@@ -37,18 +42,19 @@ ChartJS.register(
 );
 
 export default function ReportsPage() {
-  const { token, isLoading, redirectToLogin } = useAuth();
+  const { token, user, isInitialized, isLoading: authLoading } = useAuth();
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [timeFrame, setTimeFrame] = useState<"daily" | "monthly" | "yearly">(
     "monthly"
   );
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isInitialized) return;
 
-    if (!token) {
-      redirectToLogin("/admin/reports");
+    if (!token || !user || user.role !== "EventOrganizer") {
+      setLoading(false);
       return;
     }
 
@@ -72,23 +78,27 @@ export default function ReportsPage() {
         setReportData(data);
       } catch (error) {
         console.error("Error fetching reports:", error);
+        setError("Failed to load reports");
       } finally {
         setLoading(false);
       }
     };
 
     fetchReportData();
-  }, [token, isLoading, redirectToLogin]);
+  }, [token, isInitialized]);
 
-  if (isLoading || loading) {
+  // Auth loading state
+  if (!isInitialized || authLoading) {
     return (
-      <div className="max-w-6xl mx-auto p-6">
-        <div className="text-center py-20">
-          <LoadingSpinner size="large" />
-          <p className="mt-4 text-gray-600">Loading reports...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner size="large" />
       </div>
     );
+  }
+
+  // Access control
+  if (!user || user.role !== "EventOrganizer") {
+    return <AccessDenied />;
   }
 
   if (!reportData) {

@@ -26,9 +26,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import {
+  AccessDenied,
+  EmptyState,
+  ErrorDisplay,
+} from "@/components/admin/StandardComponents";
 
 export default function EventListPage() {
-  const { token, isLoading, redirectToLogin } = useAuth();
+  const { token, user, isLoading, redirectToLogin } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loadingEvents, setLoadingEvents] = useState(true);
@@ -39,15 +44,15 @@ export default function EventListPage() {
     key: keyof Event;
     direction: "asc" | "desc";
   } | null>(null);
-  const [filter, setFilter] = useState({ name: "", category: "all" }); // Changed default to 'all'
+  const [filter, setFilter] = useState({ name: "", category: "all" });
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
   useEffect(() => {
     if (isLoading) return;
 
-    if (!token) {
-      redirectToLogin("/admin/event");
+    if (!token || !user || user.role !== "EventOrganizer") {
+      setLoadingEvents(false);
       return;
     }
 
@@ -198,19 +203,8 @@ export default function EventListPage() {
     );
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Card className="max-w-md w-full">
-          <CardHeader>
-            <CardTitle className="text-red-600">Error</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-red-500">Failed to load events: {error}</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
+  if (!user || user.role !== "EventOrganizer") {
+    return <AccessDenied />;
   }
 
   return (
@@ -267,49 +261,12 @@ export default function EventListPage() {
                 <LoadingSpinner size="large" />
               </div>
             ) : error ? (
-              <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <svg
-                      className="h-5 w-5 text-red-400"
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </div>
-                  <div className="ml-3">
-                    <p className="text-sm text-red-700">{error}</p>
-                  </div>
-                </div>
-              </div>
+              <ErrorDisplay error={error} />
             ) : events.length === 0 ? (
-              <div className="text-center py-10">
-                <svg
-                  className="mx-auto h-12 w-12 text-gray-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                <h3 className="mt-2 text-lg font-medium text-gray-900">
-                  No events
-                </h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  You haven't created any events yet. Start by creating one!
-                </p>
-              </div>
+              <EmptyState
+                title="No events"
+                description="You haven't created any events yet. Start by creating one!"
+              />
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
