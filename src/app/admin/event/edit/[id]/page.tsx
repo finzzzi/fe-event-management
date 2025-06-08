@@ -5,6 +5,24 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, useParams } from "next/navigation";
 import { toast } from "sonner";
 import { EventCategory } from "@/types/event";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardFooter,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import LoadingSpinner from "@/components/ui/loadingspinner";
 
 export default function EditEventPage() {
   const { token, isLoading, redirectToLogin } = useAuth();
@@ -12,6 +30,8 @@ export default function EditEventPage() {
   const { id } = useParams();
 
   const [categories, setCategories] = useState<EventCategory[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingEvent, setIsLoadingEvent] = useState(true);
   const [form, setForm] = useState({
     name: "",
     description: "",
@@ -28,9 +48,22 @@ export default function EditEventPage() {
       redirectToLogin(`/admin/event/edit/${id}`);
     }
 
-    const fetchEvent = async () => {
+    const fetchData = async () => {
       try {
-        const res = await fetch(
+        setIsLoadingEvent(true);
+
+        // Fetch categories
+        const categoriesRes = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/events/categories`
+        );
+        if (!categoriesRes.ok) {
+          throw new Error("Failed to fetch categories");
+        }
+        const categoriesData = await categoriesRes.json();
+        setCategories(categoriesData);
+
+        // Fetch event data
+        const eventRes = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/events/${id}`,
           {
             headers: {
@@ -39,50 +72,46 @@ export default function EditEventPage() {
           }
         );
 
-        if (!res.ok) {
+        if (!eventRes.ok) {
           throw new Error("Failed to fetch event");
         }
 
-        const data = await res.json();
+        const eventData = await eventRes.json();
         setForm({
-          name: data.name,
-          description: data.description,
-          location: data.location,
-          categoryId: data.categoryId.toString(),
-          price: data.price.toString(),
-          quota: data.quota.toString(),
-          startDate: data.startDate.slice(0, 10),
-          endDate: data.endDate.slice(0, 10),
+          name: eventData.name,
+          description: eventData.description,
+          location: eventData.location,
+          categoryId: eventData.categoryId.toString(),
+          price: eventData.price.toString(),
+          quota: eventData.quota.toString(),
+          startDate: eventData.startDate.slice(0, 10),
+          endDate: eventData.endDate.slice(0, 10),
         });
-      } catch (err) {
-        toast.error("Could not load event");
+      } catch (err: any) {
+        toast.error(err.message || "Could not load data");
+      } finally {
+        setIsLoadingEvent(false);
       }
     };
 
-    const fetchCategories = async () => {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/events/categories`
-      );
-      const data = await res.json();
-      setCategories(data);
-    };
-
     if (token) {
-      fetchEvent();
-      fetchCategories();
+      fetchData();
     }
   }, [token, isLoading, redirectToLogin, id]);
 
   const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-    >
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
+  const handleCategoryChange = (value: string) => {
+    setForm((prev) => ({ ...prev, categoryId: value }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
 
     try {
       const res = await fetch(
@@ -107,96 +136,166 @@ export default function EditEventPage() {
         throw new Error(errorData.message || "Failed to update event");
       }
 
-      toast.success("Event updated!");
+      toast.success("Event updated successfully!");
       router.push("/admin/event");
     } catch (err: any) {
       toast.error(err.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
+  if (isLoading || isLoadingEvent) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner size="large" />
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-2xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-4">Edit Event</h1>
-      <form onSubmit={handleSubmit} className="grid gap-4">
-        <input
-          name="name"
-          placeholder="Event Name"
-          value={form.name}
-          onChange={handleChange}
-          required
-          className="p-2 border rounded"
-        />
-        <textarea
-          name="description"
-          placeholder="Description"
-          value={form.description}
-          onChange={handleChange}
-          required
-          className="p-2 border rounded"
-        />
-        <input
-          name="location"
-          placeholder="Location"
-          value={form.location}
-          onChange={handleChange}
-          required
-          className="p-2 border rounded"
-        />
-        <select
-          name="categoryId"
-          value={form.categoryId}
-          onChange={handleChange}
-          required
-          className="p-2 border rounded"
-        >
-          <option value="">Select category</option>
-          {categories.map((cat) => (
-            <option key={cat.id} value={cat.id}>
-              {cat.name}
-            </option>
-          ))}
-        </select>
-        <input
-          name="price"
-          type="number"
-          placeholder="Price"
-          value={form.price}
-          onChange={handleChange}
-          required
-          className="p-2 border rounded"
-        />
-        <input
-          name="quota"
-          type="number"
-          placeholder="Quota"
-          value={form.quota}
-          onChange={handleChange}
-          required
-          className="p-2 border rounded"
-        />
-        <input
-          name="startDate"
-          type="date"
-          value={form.startDate}
-          onChange={handleChange}
-          required
-          className="p-2 border rounded"
-        />
-        <input
-          name="endDate"
-          type="date"
-          value={form.endDate}
-          onChange={handleChange}
-          required
-          className="p-2 border rounded"
-        />
-        <button
-          type="submit"
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-        >
-          Update
-        </button>
-      </form>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Edit Event</CardTitle>
+          </CardHeader>
+
+          <CardContent>
+            <form onSubmit={handleSubmit} className="grid gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="name">Event Name</Label>
+                <Input
+                  id="name"
+                  name="name"
+                  placeholder="Enter event name"
+                  value={form.name}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <textarea
+                  id="description"
+                  name="description"
+                  placeholder="Enter event description"
+                  value={form.description}
+                  onChange={handleChange}
+                  required
+                  className="w-full min-h-[100px] p-2 border rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="location">Location</Label>
+                <Input
+                  id="location"
+                  name="location"
+                  placeholder="Enter event location"
+                  value={form.location}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Category</Label>
+                <Select
+                  value={form.categoryId}
+                  onValueChange={handleCategoryChange}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id.toString()}>
+                        {cat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="price">Price (IDR)</Label>
+                  <Input
+                    id="price"
+                    name="price"
+                    type="number"
+                    placeholder="Enter price"
+                    value={form.price}
+                    onChange={handleChange}
+                    required
+                    min="0"
+                    step="1000"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="quota">Quota</Label>
+                  <Input
+                    id="quota"
+                    name="quota"
+                    type="number"
+                    placeholder="Enter quota"
+                    value={form.quota}
+                    onChange={handleChange}
+                    required
+                    min="1"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="startDate">Start Date</Label>
+                  <Input
+                    id="startDate"
+                    name="startDate"
+                    type="date"
+                    value={form.startDate}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="endDate">End Date</Label>
+                  <Input
+                    id="endDate"
+                    name="endDate"
+                    type="date"
+                    value={form.endDate}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+              </div>
+
+              <CardFooter className="p-0 pt-4">
+                <Button
+                  type="submit"
+                  className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <LoadingSpinner size="small" />
+                      Updating...
+                    </>
+                  ) : (
+                    "Update Event"
+                  )}
+                </Button>
+              </CardFooter>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
