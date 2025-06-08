@@ -131,10 +131,16 @@ export default function EventListPage() {
 
               <div className="flex gap-2">
                 <Link
-                  href={`/event/edit/${event.id}`}
+                  href={`/admin/event/edit/${event.id}`}
                   className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
                 >
                   Edit
+                </Link>
+                <Link
+                  href={`/admin/event/${event.id}`}
+                  className="px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600"
+                >
+                  View Attendees
                 </Link>
                 <button
                   onClick={() => handleDelete(event.id)}

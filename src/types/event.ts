@@ -37,3 +37,14 @@ export interface EventOrganizer {
   name: string;
   email?: string;
 }
+
+export interface Attendee {
+  id: number;
+  user: {
+    id: number;
+    name: string;
+    email: string;
+  };
+  quantity: number;
+  transactionDate: string;
+}
