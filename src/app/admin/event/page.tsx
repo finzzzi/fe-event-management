@@ -219,7 +219,7 @@ export default function EventListPage() {
         <div className="mb-6 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-gray-900">My Events</h1>
           <Button
-            onClick={() => router.push("/event/create")}
+            onClick={() => router.push("/admin/event/create")}
             className="bg-blue-600 hover:bg-blue-700"
           >
             + Create Event
