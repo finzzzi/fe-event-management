@@ -6,8 +6,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { Formik, Form, Field, ErrorMessage, FormikHelpers } from "formik";
+import {
+  profileUpdateSchema,
+  ProfileUpdateFormValues,
+} from "@/lib/validationSchemas";
 
 interface UserProfile {
   name: string;
@@ -25,8 +38,15 @@ const UserProfilePage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [updating, setUpdating] = useState(false);
   const [resettingPassword, setResettingPassword] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [pendingFormValues, setPendingFormValues] =
+    useState<ProfileUpdateFormValues | null>(null);
+  const [pendingFormHelpers, setPendingFormHelpers] =
+    useState<FormikHelpers<ProfileUpdateFormValues> | null>(null);
+  const [isConfirmSubmitting, setIsConfirmSubmitting] = useState(false);
+  const [showResetPasswordDialog, setShowResetPasswordDialog] = useState(false);
+  const [showCancelEditDialog, setShowCancelEditDialog] = useState(false);
   const { token, isLoading, redirectToLogin } = useAuth();
 
   const [editForm, setEditForm] = useState({
@@ -68,20 +88,33 @@ const UserProfilePage = () => {
     }
   };
 
-  const updateProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleFormSubmit = async (
+    values: ProfileUpdateFormValues,
+    helpers: FormikHelpers<ProfileUpdateFormValues>
+  ) => {
+    // Store form values and helpers for confirmation
+    setPendingFormValues(values);
+    setPendingFormHelpers(helpers);
+    setShowConfirmDialog(true);
+  };
+
+  const handleConfirmUpdate = async () => {
+    if (!pendingFormValues || !pendingFormHelpers) return;
+
+    const { setSubmitting, setFieldError } = pendingFormHelpers;
+    setIsConfirmSubmitting(true);
 
     try {
-      setUpdating(true);
       setError(null);
+      setShowConfirmDialog(false);
 
       const updateData: UpdateProfileData = {
-        name: editForm.name,
-        email: editForm.email,
+        name: pendingFormValues.name,
+        email: pendingFormValues.email,
       };
 
-      if (editForm.password.trim()) {
-        updateData.password = editForm.password;
+      if (pendingFormValues.password && pendingFormValues.password.trim()) {
+        updateData.password = pendingFormValues.password;
       }
 
       const response = await fetch(
@@ -114,21 +147,31 @@ const UserProfilePage = () => {
       const errorMessage =
         err instanceof Error ? err.message : "An error occurred";
       setError(errorMessage);
+      setFieldError("email", errorMessage);
       toast.error(errorMessage);
     } finally {
-      setUpdating(false);
+      setIsConfirmSubmitting(false);
+      setSubmitting(false);
+      setPendingFormValues(null);
+      setPendingFormHelpers(null);
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setEditForm((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+  const handleCancelUpdate = () => {
+    setShowConfirmDialog(false);
+    if (pendingFormHelpers) {
+      pendingFormHelpers.setSubmitting(false);
+    }
+    setPendingFormValues(null);
+    setPendingFormHelpers(null);
   };
 
-  const cancelEdit = () => {
+  const handleCancelEditClick = () => {
+    setShowCancelEditDialog(true);
+  };
+
+  const handleConfirmCancelEdit = () => {
+    setShowCancelEditDialog(false);
     setIsEditing(false);
     setEditForm({
       name: profile?.name || "",
@@ -138,13 +181,18 @@ const UserProfilePage = () => {
     setError(null);
   };
 
-  const handleResetPassword = async () => {
+  const handleResetPasswordClick = () => {
+    setShowResetPasswordDialog(true);
+  };
+
+  const handleConfirmResetPassword = async () => {
     if (!profile?.email) {
       toast.error("No email found for reset password");
       return;
     }
 
     setResettingPassword(true);
+    setShowResetPasswordDialog(false);
 
     try {
       const response = await fetch(
@@ -284,7 +332,7 @@ const UserProfilePage = () => {
                       </p>
                     </div>
                     <Button
-                      onClick={handleResetPassword}
+                      onClick={handleResetPasswordClick}
                       disabled={resettingPassword}
                       variant="outline"
                       size="sm"
@@ -296,70 +344,186 @@ const UserProfilePage = () => {
               </div>
             ) : (
               // Edit Mode
-              <form onSubmit={updateProfile} className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Name</Label>
-                  <Input
-                    id="name"
-                    name="name"
-                    type="text"
-                    value={editForm.name}
-                    onChange={handleInputChange}
-                    placeholder="Enter your name"
-                    required
-                  />
-                </div>
+              <Formik
+                initialValues={{
+                  name: editForm.name,
+                  email: editForm.email,
+                  password: "",
+                }}
+                validationSchema={profileUpdateSchema}
+                onSubmit={handleFormSubmit}
+                enableReinitialize
+              >
+                {({ isSubmitting }) => (
+                  <Form className="space-y-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Name</Label>
+                      <Field
+                        as={Input}
+                        id="name"
+                        name="name"
+                        type="text"
+                        placeholder="Enter your name"
+                      />
+                      <ErrorMessage
+                        name="name"
+                        component="div"
+                        className="text-sm text-red-600"
+                      />
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    value={editForm.email}
-                    onChange={handleInputChange}
-                    placeholder="Enter your email"
-                    required
-                  />
-                </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Field
+                        as={Input}
+                        id="email"
+                        name="email"
+                        type="email"
+                        placeholder="Enter your email"
+                      />
+                      <ErrorMessage
+                        name="email"
+                        component="div"
+                        className="text-sm text-red-600"
+                      />
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="password">New Password (Optional)</Label>
-                  <Input
-                    id="password"
-                    name="password"
-                    type="password"
-                    value={editForm.password}
-                    onChange={handleInputChange}
-                    placeholder="Leave blank if you don't want to change password"
-                  />
-                </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="password">New Password (Optional)</Label>
+                      <Field
+                        as={Input}
+                        id="password"
+                        name="password"
+                        type="password"
+                        placeholder="Leave blank if you don't want to change password"
+                      />
+                      <ErrorMessage
+                        name="password"
+                        component="div"
+                        className="text-sm text-red-600"
+                      />
+                    </div>
 
-                <div className="flex gap-3 pt-4">
-                  <Button
-                    type="submit"
-                    disabled={updating}
-                    variant="blue"
-                    size="lg"
-                    className="flex-1"
-                  >
-                    {updating ? "Saving..." : "Save Changes"}
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={cancelEdit}
-                    disabled={updating}
-                    variant="outline"
-                    size="lg"
-                    className="flex-1"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </form>
+                    <div className="flex gap-3 pt-4">
+                      <Button
+                        type="submit"
+                        disabled={isSubmitting}
+                        variant="blue"
+                        size="lg"
+                        className="flex-1"
+                      >
+                        {isSubmitting ? "Saving..." : "Save Changes"}
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={handleCancelEditClick}
+                        disabled={isSubmitting}
+                        variant="outline"
+                        size="lg"
+                        className="flex-1"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </Form>
+                )}
+              </Formik>
             )}
           </CardContent>
         </Card>
+
+        {/* Confirmation Dialog */}
+        <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirmation</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to save the changes to your profile?
+                {pendingFormValues?.password &&
+                  pendingFormValues.password.trim() && (
+                    <span className="block mt-2 text-orange-600 font-medium">
+                      New password will be applied.
+                    </span>
+                  )}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={handleCancelUpdate}
+                disabled={isConfirmSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="blue"
+                onClick={handleConfirmUpdate}
+                disabled={isConfirmSubmitting}
+              >
+                {isConfirmSubmitting ? "Saving..." : "Yes, Save"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Reset Password Confirmation Dialog */}
+        <Dialog
+          open={showResetPasswordDialog}
+          onOpenChange={setShowResetPasswordDialog}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Reset Password Confirmation</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to reset your password? A reset link will
+                be sent to your email address: <strong>{profile?.email}</strong>
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setShowResetPasswordDialog(false)}
+                disabled={resettingPassword}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="blue"
+                onClick={handleConfirmResetPassword}
+                disabled={resettingPassword}
+              >
+                {resettingPassword ? "Sending..." : "Yes, Send Reset Link"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Cancel Edit Confirmation Dialog */}
+        <Dialog
+          open={showCancelEditDialog}
+          onOpenChange={setShowCancelEditDialog}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Cancel Editing</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to cancel editing? Any unsaved changes
+                will be lost.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setShowCancelEditDialog(false)}
+              >
+                Continue Editing
+              </Button>
+              <Button variant="destructive" onClick={handleConfirmCancelEdit}>
+                Yes, Cancel Editing
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

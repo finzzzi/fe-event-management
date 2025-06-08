@@ -13,13 +13,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { CountdownTimer } from "@/components/ui/countdown-timer";
 import {
   Ticket,
   Calendar,
   MapPin,
   CreditCard,
   Upload,
-  FileImage,
   CheckCircle,
   Star,
   MessageSquareText,
@@ -385,6 +385,24 @@ const TicketDetailPage = ({ params }: Props) => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                      <div className="space-y-3">
+                        <CountdownTimer
+                          createdAt={transaction.createdAt}
+                          onExpire={() => {
+                            toast.warning(
+                              "Payment time has expired. Transaction will be automatically canceled."
+                            );
+                            fetchTransactionDetail(); // Refresh data
+                          }}
+                        />
+                        <p className="text-sm text-orange-800 font-medium">
+                          ⚠️ Upload payment proof in 2 hours or transaction will
+                          be automatically canceled
+                        </p>
+                      </div>
+                    </div>
+
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                       <div className="flex items-start gap-3">
                         <div className="text-sm text-blue-800">
@@ -413,22 +431,14 @@ const TicketDetailPage = ({ params }: Props) => {
                       />
                     </div>
 
-                    {selectedFile && (
-                      <div className="flex items-center space-x-2 p-3 bg-blue-50 rounded-lg">
-                        <FileImage className="h-4 w-4 text-blue-600" />
-                        <span className="text-sm text-blue-800">
-                          {selectedFile.name}
-                        </span>
-                      </div>
-                    )}
-
                     <Button
+                      variant="blue"
                       onClick={handleUploadPaymentProof}
                       disabled={!selectedFile || uploading}
                       className="w-full"
                     >
                       {uploading ? (
-                        "Mengupload..."
+                        "Uploading..."
                       ) : (
                         <>
                           <Upload className="h-4 w-4 mr-2" />
