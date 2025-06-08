@@ -142,6 +142,11 @@ export interface UserTransaction {
     endDate: string;
   };
   transactionStatus: TransactionStatus;
+  user?: {
+    id: number;
+    name: string;
+    email: string;
+  };
 }
 
 export interface UserTransactionsResponse {

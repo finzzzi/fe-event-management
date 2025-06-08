@@ -38,6 +38,17 @@ export interface EventOrganizer {
   email?: string;
 }
 
+export interface Attendee {
+  id: number;
+  user: {
+    id: number;
+    name: string;
+    email: string;
+  };
+  quantity: number;
+  transactionDate: string;
+}
+
 export interface Review {
   rating: number;
   comment: string;

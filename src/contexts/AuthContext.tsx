@@ -1,12 +1,27 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
+interface User {
+  id: Number;
+  name: string;
+  email: string;
+  role: string;
+}
+
 interface AuthContextType {
   token: string | null;
+  user: User | null;
   isLoading: boolean;
+  isInitialized: boolean;
   login: (email: string, password: string, returnUrl?: string) => Promise<void>;
   register: (
     name: string,
@@ -32,58 +47,88 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [token, setToken] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
   const router = useRouter();
 
-  // Check for existing token on mount
+  // Check for existing token and user on mount
   useEffect(() => {
-    const savedToken = localStorage.getItem("token");
-    if (savedToken) {
-      setToken(savedToken);
-    }
-    setIsLoading(false);
+    const initializeAuth = async () => {
+      try {
+        const savedToken = localStorage.getItem("token");
+        const savedUser = localStorage.getItem("user");
+
+        if (savedToken) {
+          setToken(savedToken);
+
+          if (savedUser && savedUser !== "undefined") {
+            try {
+              setUser(JSON.parse(savedUser));
+            } catch (e) {
+              console.error("Failed to parse user data", e);
+              localStorage.removeItem("user");
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Auth initialization error:", error);
+      } finally {
+        setIsLoading(false);
+        setIsInitialized(true);
+      }
+    };
+
+    initializeAuth();
   }, []);
 
-  const login = async (
-    email: string,
-    password: string,
-    returnUrl?: string
-  ): Promise<void> => {
-    try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/auth/login`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ email, password }),
+  const login = useCallback(
+    async (
+      email: string,
+      password: string,
+      returnUrl?: string
+    ): Promise<void> => {
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/auth/login`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ email, password }),
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || "Login failed");
         }
-      );
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Login failed");
+        const data = await response.json();
+
+        setToken(data.token);
+        setUser(data.user);
+
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+        toast.success("Login successful. Welcome back!");
+
+        // Redirect to return URL or home page
+        if (returnUrl) {
+          router.push(returnUrl);
+        } else {
+          router.push("/");
+        }
+      } catch (error) {
+        console.error("Login error:", error);
+        throw error;
+      } finally {
+        setIsLoading(false);
       }
-
-      const data = await response.json();
-
-      setToken(data.token);
-
-      localStorage.setItem("token", data.token);
-      toast.success("Login successful. Welcome back!");
-
-      // Redirect to return URL or home page
-      if (returnUrl) {
-        router.push(returnUrl);
-      } else {
-        router.push("/");
-      }
-    } catch (error) {
-      console.error("Login error:", error);
-      throw error;
-    }
-  };
+    },
+    []
+  );
 
   const register = async (
     name: string,
@@ -116,7 +161,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const data = await response.json();
 
       setToken(data.token);
+      setUser(data.user);
 
+      localStorage.setItem("user", JSON.stringify(data.user));
       localStorage.setItem("token", data.token);
       toast.success(
         <div className="flex flex-col">
@@ -133,6 +180,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const logout = () => {
     setToken(null);
     localStorage.removeItem("token");
+    localStorage.removeItem("user");
     toast.success("You have been logged out");
   };
 
@@ -145,7 +193,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const value = {
     token,
+    user,
     isLoading,
+    isInitialized,
     login,
     register,
     logout,
