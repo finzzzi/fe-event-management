@@ -87,8 +87,9 @@ export default function EditEventPage() {
           startDate: eventData.startDate.slice(0, 10),
           endDate: eventData.endDate.slice(0, 10),
         });
-      } catch (err: any) {
-        toast.error(err.message || "Could not load data");
+      } catch (err) {
+        console.error("Failed to fetch event:", err);
+        toast.error("Could not load event");
       } finally {
         setIsLoadingEvent(false);
       }
@@ -138,8 +139,10 @@ export default function EditEventPage() {
 
       toast.success("Event updated successfully!");
       router.push("/admin/event");
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to update event";
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }

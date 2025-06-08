@@ -48,3 +48,16 @@ export interface Attendee {
   quantity: number;
   transactionDate: string;
 }
+
+export interface Review {
+  rating: number;
+  comment: string;
+  eventName: string;
+  reviewedBy: string;
+}
+
+export interface OrganizerProfile {
+  name: string;
+  overallRating: number;
+  reviews: Review[];
+}

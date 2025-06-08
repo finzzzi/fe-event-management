@@ -28,9 +28,11 @@ import {
 } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { transactionService } from "@/services/transactionService";
-import { userService, UserProfileResponse } from "@/services/userService";
+import { userService } from "@/services/userService";
+import { UserProfileResponse } from "@/types/user";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -149,14 +151,14 @@ const DetailEventPage = ({ params }: Props) => {
         use_voucher: useVoucher,
       };
 
-      const response = await transactionService.createTransaction(requestData);
+      await transactionService.createTransaction(requestData);
 
       toast.success(
         "Transaksi berhasil dibuat! Silakan upload bukti pembayaran."
       );
 
-      // navigate to payment proof upload page
-      router.push(`/transaction/${response.data.transactionId}/payment-proof`);
+      // navigate to ticket page
+      router.push(`/ticket`);
     } catch (error) {
       console.error("Failed to create transaction:", error);
       toast.error(
@@ -354,7 +356,7 @@ const DetailEventPage = ({ params }: Props) => {
             <div className="flex flex-wrap items-center gap-6 text-blue-100">
               <div className="flex items-center">
                 <User className="h-5 w-5 mr-2" />
-                <span>By {event.organizer.name}</span>
+                <span>Organized by {event.organizer.name}</span>
               </div>
               <div className="flex items-center">
                 <Users className="h-5 w-5 mr-2" />
@@ -425,8 +427,26 @@ const DetailEventPage = ({ params }: Props) => {
             </Card>
           </div>
 
-          {/* Sidebar - Ticket Purchase */}
-          <div>
+          {/* Sidebar - Organizer Info */}
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-xl text-gray-800 flex items-center justify-center">
+                  <User className="h-5 w-5 mr-2 text-blue-600" />
+                  Organized By
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Link
+                  href={`/event-organizer/${event.userId}`}
+                  className="flex items-center text-blue-800 hover:text-blue-600 font-medium hover:underline transition-colors justify-center"
+                >
+                  {event.organizer.name}
+                </Link>
+              </CardContent>
+            </Card>
+
+            {/* Ticket Purchase */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-xl text-gray-800 flex items-center">

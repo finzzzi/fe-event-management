@@ -153,3 +153,32 @@ export interface UserTransactionsResponse {
   message: string;
   data: UserTransaction[];
 }
+
+// Review Types
+export interface CreateReviewRequest {
+  eventId: number;
+  rating: number;
+  comment: string;
+  transactionId: number;
+}
+
+export interface ReviewData {
+  id: number;
+  userId: number;
+  eventId: number;
+  rating: number;
+  comment: string;
+  transactionId: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateReviewResponse {
+  message: string;
+  data: ReviewData;
+}
+
+export interface GetReviewResponse {
+  message: string;
+  data: ReviewData | null;
+}

@@ -13,15 +13,25 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { CountdownTimer } from "@/components/ui/countdown-timer";
 import {
   Ticket,
   Calendar,
   MapPin,
   CreditCard,
   Upload,
-  FileImage,
   CheckCircle,
+  Star,
+  MessageSquareText,
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -35,6 +45,18 @@ const TicketDetailPage = ({ params }: Props) => {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [rating, setRating] = useState<number | null>(null);
+  const [comment, setComment] = useState<string>("");
+  const [userReview, setUserReview] = useState<{
+    id: number;
+    userId: number;
+    eventId: number;
+    rating: number;
+    comment: string;
+    transactionId: number;
+    createdAt: string;
+    updatedAt: string;
+  } | null>(null);
 
   const statusMapping = {
     WaitingForPayment: {
@@ -65,20 +87,37 @@ const TicketDetailPage = ({ params }: Props) => {
 
   useEffect(() => {
     fetchTransactionDetail();
-  }, []);
+  }, [id]);
 
   const fetchTransactionDetail = async () => {
+    setLoading(true);
     try {
       const response = await transactionService.getUserTransactions();
-      const transaction = response.data.find((t) => t.id === parseInt(id));
+      const foundTransaction = response.data.find((t) => t.id === parseInt(id));
 
-      if (!transaction) {
+      if (!foundTransaction) {
         toast.error("Ticket not found");
         router.push("/ticket");
         return;
       }
+      setTransaction(foundTransaction);
 
-      setTransaction(transaction);
+      if (foundTransaction.transactionStatus.name === "Done") {
+        try {
+          const reviewResponse =
+            await transactionService.getReviewByTransactionId(
+              foundTransaction.id
+            );
+          if (reviewResponse.data) {
+            setUserReview(reviewResponse.data);
+          } else {
+            setUserReview(null);
+          }
+        } catch (reviewError) {
+          console.error("Failed to fetch review:", reviewError);
+          setUserReview(null);
+        }
+      }
     } catch (error) {
       console.error("Failed to fetch transaction detail:", error);
       toast.error(
@@ -154,6 +193,46 @@ const TicketDetailPage = ({ params }: Props) => {
       );
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleReviewSubmit = async () => {
+    if (!transaction) return;
+    if (!rating) {
+      toast.error("Please select a rating.");
+      return;
+    }
+    if (!comment.trim()) {
+      toast.error("Please enter a comment.");
+      return;
+    }
+
+    try {
+      await transactionService.createReview({
+        eventId: transaction.event.id,
+        rating,
+        comment,
+        transactionId: transaction.id,
+      });
+      toast.success("Review submitted successfully!");
+
+      try {
+        const reviewResponse =
+          await transactionService.getReviewByTransactionId(transaction.id);
+        if (reviewResponse.data) {
+          setUserReview(reviewResponse.data);
+        }
+      } catch (fetchReviewError) {
+        console.error("Failed to fetch submitted review:", fetchReviewError);
+      }
+
+      setRating(null);
+      setComment("");
+    } catch (error) {
+      console.error("Failed to submit review:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to submit review"
+      );
     }
   };
 
@@ -306,6 +385,24 @@ const TicketDetailPage = ({ params }: Props) => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                      <div className="space-y-3">
+                        <CountdownTimer
+                          createdAt={transaction.createdAt}
+                          onExpire={() => {
+                            toast.warning(
+                              "Payment time has expired. Transaction will be automatically canceled."
+                            );
+                            fetchTransactionDetail(); // Refresh data
+                          }}
+                        />
+                        <p className="text-sm text-orange-800 font-medium">
+                          ⚠️ Upload payment proof in 2 hours or transaction will
+                          be automatically canceled
+                        </p>
+                      </div>
+                    </div>
+
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                       <div className="flex items-start gap-3">
                         <div className="text-sm text-blue-800">
@@ -334,22 +431,14 @@ const TicketDetailPage = ({ params }: Props) => {
                       />
                     </div>
 
-                    {selectedFile && (
-                      <div className="flex items-center space-x-2 p-3 bg-blue-50 rounded-lg">
-                        <FileImage className="h-4 w-4 text-blue-600" />
-                        <span className="text-sm text-blue-800">
-                          {selectedFile.name}
-                        </span>
-                      </div>
-                    )}
-
                     <Button
+                      variant="blue"
                       onClick={handleUploadPaymentProof}
                       disabled={!selectedFile || uploading}
                       className="w-full"
                     >
                       {uploading ? (
-                        "Mengupload..."
+                        "Uploading..."
                       ) : (
                         <>
                           <Upload className="h-4 w-4 mr-2" />
@@ -380,6 +469,118 @@ const TicketDetailPage = ({ params }: Props) => {
                   </CardContent>
                 </Card>
               )}
+
+              {/* Event Review */}
+              {transaction.transactionStatus.name === "Done" &&
+                (userReview ? (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-xl text-gray-800 flex items-center">
+                        <MessageSquareText className="h-5 w-5 mr-2 text-green-600" />
+                        Your Review
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-center">
+                        {Array(userReview.rating)
+                          .fill(0)
+                          .map((_, i) => (
+                            <Star
+                              key={`filled-${i}`}
+                              className="h-5 w-5 text-yellow-400 fill-yellow-400"
+                            />
+                          ))}
+                        {Array(5 - userReview.rating)
+                          .fill(0)
+                          .map((_, i) => (
+                            <Star
+                              key={`empty-${i}`}
+                              className="h-5 w-5 text-gray-300"
+                            />
+                          ))}
+                        <span className="ml-2 text-sm text-gray-600">
+                          ({userReview.rating} Star
+                          {userReview.rating > 1 ? "s" : ""})
+                        </span>
+                      </div>
+                      <p className="text-gray-700 whitespace-pre-wrap">
+                        {userReview.comment}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Reviewed on: {formatDate(userReview.createdAt)} at{" "}
+                        {formatTime(userReview.createdAt)}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-xl text-gray-800">
+                        Event Review
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div>
+                        <Label htmlFor="rating">Rating</Label>
+                        <Select
+                          value={rating ? String(rating) : ""}
+                          onValueChange={(value) => setRating(Number(value))}
+                        >
+                          <SelectTrigger id="rating" className="w-full">
+                            <SelectValue placeholder="Select a rating (1-5)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[1, 2, 3, 4, 5].map((r) => (
+                              <SelectItem key={r} value={String(r)}>
+                                <div className="flex items-center">
+                                  {Array(r)
+                                    .fill(0)
+                                    .map((_, i) => (
+                                      <Star
+                                        key={`form-star-filled-${i}`}
+                                        className="h-4 w-4 text-yellow-400 fill-yellow-400"
+                                      />
+                                    ))}
+                                  {Array(5 - r)
+                                    .fill(0)
+                                    .map((_, i) => (
+                                      <Star
+                                        key={`form-star-empty-${i}`}
+                                        className="h-4 w-4 text-gray-300"
+                                      />
+                                    ))}
+                                  <span className="ml-2 text-sm">
+                                    ({r} Star{r > 1 ? "s" : ""})
+                                  </span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="comment">Comment</Label>
+                        <Textarea
+                          id="comment"
+                          placeholder="Write your review here..."
+                          value={comment}
+                          onChange={(
+                            e: React.ChangeEvent<HTMLTextAreaElement>
+                          ) => setComment(e.target.value)}
+                          rows={4}
+                        />
+                      </div>
+                      <Button
+                        variant="blue"
+                        onClick={handleReviewSubmit}
+                        disabled={!rating || !comment.trim()}
+                        className="w-full"
+                      >
+                        Submit Review
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
             </div>
 
             {/* Sidebar - Order Summary */}
