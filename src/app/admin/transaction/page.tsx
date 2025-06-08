@@ -1,11 +1,31 @@
+// Replace the entire file with this corrected version
 "use client";
 
-import React, { useEffect, useState } from "react";
-import TransactionList from "@/components/admin/TransactionList";
+import React, { useEffect, useState, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import LoadingSpinner from "@/components/ui/loadingspinner";
 import { UserTransaction } from "@/types/transaction";
 import { toast } from "sonner";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardFooter,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ChevronDown, ChevronUp } from "lucide-react";
+import { format } from "date-fns";
+import { id as indonesian } from "date-fns/locale";
+import PaymentProofModal from "@/components/admin/PaymentProofModal";
 
 const TransactionsPage: React.FC = () => {
   const [transactions, setTransactions] = useState<UserTransaction[]>([]);
@@ -13,6 +33,20 @@ const TransactionsPage: React.FC = () => {
   const [error, setError] = useState("");
   const { token, user, isInitialized, isLoading: authLoading } = useAuth();
   const [refreshKey, setRefreshKey] = useState(0);
+  const [selectedProof, setSelectedProof] = useState<string | null>(null); // For payment proof modal
+
+  // Sorting and filtering states
+  const [sortConfig, setSortConfig] = useState<{
+    key: keyof UserTransaction;
+    direction: "asc" | "desc";
+  } | null>(null);
+  const [filter, setFilter] = useState({
+    eventName: "",
+    status: "all",
+    customerName: "",
+  });
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     const fetchTransactions = async () => {
@@ -37,24 +71,7 @@ const TransactionsPage: React.FC = () => {
         }
 
         const data = await response.json();
-
-        const transformedTransactions: UserTransaction[] = data.map(
-          (tx: any) => ({
-            ...tx,
-            event: {
-              ...tx.event,
-              // Ensure dates are strings if they come as Date objects
-              startDate: tx.event.startDate
-                ? new Date(tx.event.startDate).toISOString()
-                : "",
-              endDate: tx.event.endDate
-                ? new Date(tx.event.endDate).toISOString()
-                : "",
-            },
-          })
-        );
-
-        setTransactions(transformedTransactions);
+        setTransactions(data);
         setError("");
       } catch (err) {
         setError("Failed to load transactions");
@@ -68,6 +85,89 @@ const TransactionsPage: React.FC = () => {
       fetchTransactions();
     }
   }, [token, user, isInitialized, refreshKey]);
+
+  // Apply sorting and filtering
+  const processedTransactions = useMemo(() => {
+    let filtered = [...transactions];
+
+    // Apply filters
+    if (filter.eventName) {
+      filtered = filtered.filter((tx) =>
+        tx.event.name.toLowerCase().includes(filter.eventName.toLowerCase())
+      );
+    }
+
+    if (filter.customerName) {
+      filtered = filtered.filter((tx) =>
+        tx.user?.name.toLowerCase().includes(filter.customerName.toLowerCase())
+      );
+    }
+
+    if (filter.status !== "all") {
+      filtered = filtered.filter(
+        (tx) =>
+          tx.transactionStatus.name.toLowerCase() ===
+          filter.status.toLowerCase()
+      );
+    }
+
+    // Apply sorting
+    if (sortConfig) {
+      filtered.sort((a, b) => {
+        let aValue: any = a[sortConfig.key];
+        let bValue: any = b[sortConfig.key];
+
+        // Handle nested properties
+        if (sortConfig.key === "event") {
+          aValue = a.event.name;
+          bValue = b.event.name;
+        } else if (sortConfig.key === "user") {
+          aValue = a.user?.name;
+          bValue = b.user?.name;
+        } else if (sortConfig.key === "transactionStatus") {
+          aValue = a.transactionStatus.name;
+          bValue = b.transactionStatus.name;
+        }
+
+        // Handle dates
+        if (sortConfig.key === "createdAt") {
+          aValue = new Date(aValue).getTime();
+          bValue = new Date(bValue).getTime();
+        }
+
+        if (aValue < bValue) {
+          return sortConfig.direction === "asc" ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === "asc" ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+
+    return filtered;
+  }, [transactions, filter, sortConfig]);
+
+  // Pagination
+  const totalPages = Math.ceil(processedTransactions.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedTransactions = processedTransactions.slice(
+    startIndex,
+    startIndex + itemsPerPage
+  );
+
+  // Handle sorting
+  const handleSort = (key: keyof UserTransaction) => {
+    let direction: "asc" | "desc" = "asc";
+    if (
+      sortConfig &&
+      sortConfig.key === key &&
+      sortConfig.direction === "asc"
+    ) {
+      direction = "desc";
+    }
+    setSortConfig({ key, direction });
+  };
 
   const handleAccept = async (transactionId: number) => {
     try {
@@ -87,7 +187,7 @@ const TransactionsPage: React.FC = () => {
       }
 
       toast.success("Transaction accepted");
-      setRefreshKey((prev) => prev + 1); // Refresh transaction list
+      setRefreshKey((prev) => prev + 1);
     } catch (error: any) {
       console.error("Error accepting transaction:", error);
       toast.error(error.message || "Failed to accept transaction");
@@ -112,10 +212,37 @@ const TransactionsPage: React.FC = () => {
       }
 
       toast.success("Transaction rejected");
-      setRefreshKey((prev) => prev + 1); // Refresh transaction list
+      setRefreshKey((prev) => prev + 1);
     } catch (error: any) {
       console.error("Error rejecting transaction:", error);
       toast.error(error.message || "Failed to reject transaction");
+    }
+  };
+
+  // Format currency helper
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("id-ID", {
+      style: "currency",
+      currency: "IDR",
+      minimumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  // Handle payment proof viewing
+  const handleViewProof = (proofUrl: string | null) => {
+    if (!proofUrl) {
+      alert("No payment proof available");
+      return;
+    }
+
+    // Prepend backend URL to relative paths
+    if (!proofUrl.startsWith("http") && !proofUrl.startsWith("data:")) {
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL || "";
+      const separator =
+        backendUrl.endsWith("/") || proofUrl.startsWith("") ? "" : "/";
+      setSelectedProof(`${backendUrl}${separator}${proofUrl}`);
+    } else {
+      setSelectedProof(proofUrl);
     }
   };
 
@@ -151,63 +278,385 @@ const TransactionsPage: React.FC = () => {
           </h1>
         </div>
 
-        {loading ? (
-          <div className="flex justify-center mt-12">
-            <LoadingSpinner size="large" />
-          </div>
-        ) : error ? (
-          <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg
-                  className="h-5 w-5 text-red-400"
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <CardTitle>All Transactions</CardTitle>
+              <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                <Input
+                  placeholder="Search by event name..."
+                  value={filter.eventName}
+                  onChange={(e) =>
+                    setFilter({ ...filter, eventName: e.target.value })
+                  }
+                  className="max-w-md"
+                />
+                <Input
+                  placeholder="Search by customer..."
+                  value={filter.customerName}
+                  onChange={(e) =>
+                    setFilter({ ...filter, customerName: e.target.value })
+                  }
+                  className="max-w-md"
+                />
+                <Select
+                  value={filter.status}
+                  onValueChange={(value) =>
+                    setFilter({ ...filter, status: value })
+                  }
                 >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <p className="text-sm text-red-700">{error}</p>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="WaitingForAdminConfirmation">
+                      Pending
+                    </SelectItem>
+                    <SelectItem value="Done">Accepted</SelectItem>
+                    <SelectItem value="Rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-          </div>
-        ) : transactions.length === 0 ? (
-          <div className="bg-white rounded-lg shadow p-8 text-center">
-            <svg
-              className="mx-auto h-12 w-12 text-gray-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <h3 className="mt-2 text-lg font-medium text-gray-900">
-              No transactions
-            </h3>
-            <p className="mt-1 text-sm text-gray-500">
-              You don't have any transactions yet. Transactions will appear here
-              once customers purchase tickets to your events.
-            </p>
-          </div>
-        ) : (
-          <TransactionList
-            transactions={transactions}
-            onAccept={handleAccept}
-            onReject={handleReject}
-          />
-        )}
+          </CardHeader>
+
+          <CardContent>
+            {loading ? (
+              <div className="flex justify-center py-20">
+                <LoadingSpinner size="medium" />
+              </div>
+            ) : error ? (
+              <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg
+                      className="h-5 w-5 text-red-400"
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-red-700">{error}</p>
+                  </div>
+                </div>
+              </div>
+            ) : processedTransactions.length === 0 ? (
+              <div className="bg-white rounded-lg shadow p-8 text-center">
+                <svg
+                  className="mx-auto h-12 w-12 text-gray-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <h3 className="mt-2 text-lg font-medium text-gray-900">
+                  No transactions found
+                </h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  {filter.eventName ||
+                  filter.customerName ||
+                  filter.status !== "all"
+                    ? "No transactions match your filters"
+                    : "You don't have any transactions yet. Transactions will appear here once customers purchase tickets to your events."}
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                        onClick={() => handleSort("event")}
+                      >
+                        <div className="flex items-center">
+                          Event
+                          {sortConfig?.key === "event" &&
+                            (sortConfig.direction === "asc" ? (
+                              <ChevronUp className="ml-1 h-4 w-4" />
+                            ) : (
+                              <ChevronDown className="ml-1 h-4 w-4" />
+                            ))}
+                        </div>
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                        onClick={() => handleSort("user")}
+                      >
+                        <div className="flex items-center">
+                          Customer
+                          {sortConfig?.key === "user" &&
+                            (sortConfig.direction === "asc" ? (
+                              <ChevronUp className="ml-1 h-4 w-4" />
+                            ) : (
+                              <ChevronDown className="ml-1 h-4 w-4" />
+                            ))}
+                        </div>
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Tickets
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                        onClick={() => handleSort("totalPrice")}
+                      >
+                        <div className="flex items-center">
+                          Amount
+                          {sortConfig?.key === "totalPrice" &&
+                            (sortConfig.direction === "asc" ? (
+                              <ChevronUp className="ml-1 h-4 w-4" />
+                            ) : (
+                              <ChevronDown className="ml-1 h-4 w-4" />
+                            ))}
+                        </div>
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                        onClick={() => handleSort("transactionStatus")}
+                      >
+                        <div className="flex items-center">
+                          Status
+                          {sortConfig?.key === "transactionStatus" &&
+                            (sortConfig.direction === "asc" ? (
+                              <ChevronUp className="ml-1 h-4 w-4" />
+                            ) : (
+                              <ChevronDown className="ml-1 h-4 w-4" />
+                            ))}
+                        </div>
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                        onClick={() => handleSort("createdAt")}
+                      >
+                        <div className="flex items-center">
+                          Date
+                          {sortConfig?.key === "createdAt" &&
+                            (sortConfig.direction === "asc" ? (
+                              <ChevronUp className="ml-1 h-4 w-4" />
+                            ) : (
+                              <ChevronDown className="ml-1 h-4 w-4" />
+                            ))}
+                        </div>
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {paginatedTransactions.map((transaction) => {
+                      // Get status display properties
+                      const getStatusProperties = (statusName: string) => {
+                        switch (statusName) {
+                          case "WaitingForPayment":
+                            return {
+                              text: "Waiting for Payment",
+                              color: "bg-yellow-100 text-yellow-800",
+                            };
+                          case "WaitingForAdminConfirmation":
+                            return {
+                              text: "Pending",
+                              color: "bg-blue-100 text-blue-800",
+                            };
+                          case "Done":
+                            return {
+                              text: "Approved",
+                              color: "bg-green-100 text-green-800",
+                            };
+                          case "Rejected":
+                            return {
+                              text: "Rejected",
+                              color: "bg-red-100 text-red-800",
+                            };
+                          case "Expired":
+                            return {
+                              text: "Expired",
+                              color: "bg-gray-100 text-gray-800",
+                            };
+                          case "Canceled":
+                            return {
+                              text: "Canceled",
+                              color: "bg-gray-100 text-gray-800",
+                            };
+                          default:
+                            return {
+                              text: statusName,
+                              color: "bg-gray-100 text-gray-800",
+                            };
+                        }
+                      };
+
+                      const statusProps = getStatusProperties(
+                        transaction.transactionStatus.name
+                      );
+
+                      return (
+                        <tr key={transaction.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="font-medium text-gray-900">
+                              {transaction.event.name}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {transaction.event.location}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {transaction.user?.name}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {transaction.user?.email}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {transaction.quantity}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div className="font-medium">
+                              {formatCurrency(transaction.totalPrice)}
+                            </div>
+                            {transaction.totalDiscount > 0 && (
+                              <div className="text-xs text-green-600">
+                                -{formatCurrency(transaction.totalDiscount)}{" "}
+                                discount
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span
+                              className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusProps.color}`}
+                            >
+                              {statusProps.text}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {format(
+                              new Date(transaction.createdAt),
+                              "dd MMM yyyy, HH:mm",
+                              { locale: indonesian }
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div className="flex justify-end space-x-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  handleViewProof(transaction.paymentProof)
+                                }
+                                disabled={!transaction.paymentProof}
+                              >
+                                View Proof
+                              </Button>
+                              {transaction.transactionStatus.name ===
+                                "WaitingForAdminConfirmation" && (
+                                <>
+                                  <Button
+                                    variant="default"
+                                    size="sm"
+                                    onClick={() => handleAccept(transaction.id)}
+                                  >
+                                    Accept
+                                  </Button>
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => handleReject(transaction.id)}
+                                  >
+                                    Reject
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+
+          {processedTransactions.length > 0 && (
+            <CardFooter className="bg-gray-50 px-6 py-3 flex items-center justify-between border-t border-gray-200">
+              <div className="text-sm text-gray-700">
+                Showing <span className="font-medium">{startIndex + 1}</span> to{" "}
+                <span className="font-medium">
+                  {Math.min(
+                    startIndex + itemsPerPage,
+                    processedTransactions.length
+                  )}
+                </span>{" "}
+                of{" "}
+                <span className="font-medium">
+                  {processedTransactions.length}
+                </span>{" "}
+                transactions
+              </div>
+
+              <div className="flex space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.max(prev - 1, 1))
+                  }
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+                <div className="flex items-center px-4 text-sm">
+                  Page {currentPage} of {totalPages}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                  }
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </CardFooter>
+          )}
+        </Card>
       </div>
+
+      {/* Payment Proof Modal */}
+      {selectedProof && (
+        <PaymentProofModal
+          imageUrl={selectedProof}
+          onClose={() => setSelectedProof(null)}
+        />
+      )}
     </div>
   );
 };
