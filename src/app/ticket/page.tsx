@@ -206,13 +206,13 @@ const MyTicket = () => {
                 <Ticket className="h-16 w-16 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-xl font-semibold text-gray-600 mb-2">
                   {statusFilter === "all"
-                    ? "Tidak Ada Tiket"
-                    : "Tidak Ada Tiket dengan Status Ini"}
+                    ? "No Ticket"
+                    : "No Ticket with this status"}
                 </h3>
                 <p className="text-gray-500">
                   {statusFilter === "all"
-                    ? "Anda belum membeli tiket apapun. Mulai jelajahi event menarik!"
-                    : "Tidak ada tiket dengan status yang dipilih."}
+                    ? "You haven't bought any tickets yet. Start exploring interesting events!"
+                    : "No tickets with the selected status."}
                 </p>
               </CardContent>
             </Card>

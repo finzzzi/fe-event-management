@@ -6,6 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { Formik, Form, Field, ErrorMessage, FormikHelpers } from "formik";
@@ -31,6 +39,14 @@ const UserProfilePage = () => {
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [resettingPassword, setResettingPassword] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [pendingFormValues, setPendingFormValues] =
+    useState<ProfileUpdateFormValues | null>(null);
+  const [pendingFormHelpers, setPendingFormHelpers] =
+    useState<FormikHelpers<ProfileUpdateFormValues> | null>(null);
+  const [isConfirmSubmitting, setIsConfirmSubmitting] = useState(false);
+  const [showResetPasswordDialog, setShowResetPasswordDialog] = useState(false);
+  const [showCancelEditDialog, setShowCancelEditDialog] = useState(false);
   const { token, isLoading, redirectToLogin } = useAuth();
 
   const [editForm, setEditForm] = useState({
@@ -72,20 +88,33 @@ const UserProfilePage = () => {
     }
   };
 
-  const handleProfileUpdate = async (
+  const handleFormSubmit = async (
     values: ProfileUpdateFormValues,
-    { setSubmitting, setFieldError }: FormikHelpers<ProfileUpdateFormValues>
+    helpers: FormikHelpers<ProfileUpdateFormValues>
   ) => {
+    // Store form values and helpers for confirmation
+    setPendingFormValues(values);
+    setPendingFormHelpers(helpers);
+    setShowConfirmDialog(true);
+  };
+
+  const handleConfirmUpdate = async () => {
+    if (!pendingFormValues || !pendingFormHelpers) return;
+
+    const { setSubmitting, setFieldError } = pendingFormHelpers;
+    setIsConfirmSubmitting(true);
+
     try {
       setError(null);
+      setShowConfirmDialog(false);
 
       const updateData: UpdateProfileData = {
-        name: values.name,
-        email: values.email,
+        name: pendingFormValues.name,
+        email: pendingFormValues.email,
       };
 
-      if (values.password && values.password.trim()) {
-        updateData.password = values.password;
+      if (pendingFormValues.password && pendingFormValues.password.trim()) {
+        updateData.password = pendingFormValues.password;
       }
 
       const response = await fetch(
@@ -121,11 +150,28 @@ const UserProfilePage = () => {
       setFieldError("email", errorMessage);
       toast.error(errorMessage);
     } finally {
+      setIsConfirmSubmitting(false);
       setSubmitting(false);
+      setPendingFormValues(null);
+      setPendingFormHelpers(null);
     }
   };
 
-  const cancelEdit = () => {
+  const handleCancelUpdate = () => {
+    setShowConfirmDialog(false);
+    if (pendingFormHelpers) {
+      pendingFormHelpers.setSubmitting(false);
+    }
+    setPendingFormValues(null);
+    setPendingFormHelpers(null);
+  };
+
+  const handleCancelEditClick = () => {
+    setShowCancelEditDialog(true);
+  };
+
+  const handleConfirmCancelEdit = () => {
+    setShowCancelEditDialog(false);
     setIsEditing(false);
     setEditForm({
       name: profile?.name || "",
@@ -135,13 +181,18 @@ const UserProfilePage = () => {
     setError(null);
   };
 
-  const handleResetPassword = async () => {
+  const handleResetPasswordClick = () => {
+    setShowResetPasswordDialog(true);
+  };
+
+  const handleConfirmResetPassword = async () => {
     if (!profile?.email) {
       toast.error("No email found for reset password");
       return;
     }
 
     setResettingPassword(true);
+    setShowResetPasswordDialog(false);
 
     try {
       const response = await fetch(
@@ -281,7 +332,7 @@ const UserProfilePage = () => {
                       </p>
                     </div>
                     <Button
-                      onClick={handleResetPassword}
+                      onClick={handleResetPasswordClick}
                       disabled={resettingPassword}
                       variant="outline"
                       size="sm"
@@ -300,7 +351,7 @@ const UserProfilePage = () => {
                   password: "",
                 }}
                 validationSchema={profileUpdateSchema}
-                onSubmit={handleProfileUpdate}
+                onSubmit={handleFormSubmit}
                 enableReinitialize
               >
                 {({ isSubmitting }) => (
@@ -365,7 +416,7 @@ const UserProfilePage = () => {
                       </Button>
                       <Button
                         type="button"
-                        onClick={cancelEdit}
+                        onClick={handleCancelEditClick}
                         disabled={isSubmitting}
                         variant="outline"
                         size="lg"
@@ -380,6 +431,99 @@ const UserProfilePage = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Confirmation Dialog */}
+        <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirmation</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to save the changes to your profile?
+                {pendingFormValues?.password &&
+                  pendingFormValues.password.trim() && (
+                    <span className="block mt-2 text-orange-600 font-medium">
+                      New password will be applied.
+                    </span>
+                  )}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={handleCancelUpdate}
+                disabled={isConfirmSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="blue"
+                onClick={handleConfirmUpdate}
+                disabled={isConfirmSubmitting}
+              >
+                {isConfirmSubmitting ? "Saving..." : "Yes, Save"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Reset Password Confirmation Dialog */}
+        <Dialog
+          open={showResetPasswordDialog}
+          onOpenChange={setShowResetPasswordDialog}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Reset Password Confirmation</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to reset your password? A reset link will
+                be sent to your email address: <strong>{profile?.email}</strong>
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setShowResetPasswordDialog(false)}
+                disabled={resettingPassword}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="blue"
+                onClick={handleConfirmResetPassword}
+                disabled={resettingPassword}
+              >
+                {resettingPassword ? "Sending..." : "Yes, Send Reset Link"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Cancel Edit Confirmation Dialog */}
+        <Dialog
+          open={showCancelEditDialog}
+          onOpenChange={setShowCancelEditDialog}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Cancel Editing</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to cancel editing? Any unsaved changes
+                will be lost.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setShowCancelEditDialog(false)}
+              >
+                Continue Editing
+              </Button>
+              <Button variant="destructive" onClick={handleConfirmCancelEdit}>
+                Yes, Cancel Editing
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
