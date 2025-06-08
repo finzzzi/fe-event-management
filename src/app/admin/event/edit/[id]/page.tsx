@@ -108,7 +108,7 @@ export default function EditEventPage() {
       }
 
       toast.success("Event updated!");
-      router.push("/event");
+      router.push("/admin/event");
     } catch (err: any) {
       toast.error(err.message);
     }

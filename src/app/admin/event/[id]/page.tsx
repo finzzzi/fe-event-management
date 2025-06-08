@@ -5,16 +5,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { Event } from "@/types/event";
-import { User } from "@/types/user";
 import LoadingSpinner from "@/components/ui/loadingspinner";
 import { toast } from "sonner";
-
-interface Attendee {
-  id: number;
-  user: User;
-  quantity: number;
-  transactionDate: string;
-}
+import { Attendee } from "@/types/event";
 
 export default function AttendeeListPage() {
   const { id } = useParams();
