@@ -7,20 +7,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
+import { Formik, Form, Field, ErrorMessage, FormikHelpers } from "formik";
+import {
+  resetPasswordConfirmSchema,
+  ResetPasswordConfirmFormValues,
+} from "@/lib/validationSchemas";
 
 const ResetPasswordPage = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
 
-  const [formData, setFormData] = useState({
-    newPassword: "",
-    confirmPassword: "",
-  });
-  const [isLoading, setIsLoading] = useState(false);
   const [isValidatingToken, setIsValidatingToken] = useState(true);
   const [tokenValid, setTokenValid] = useState(false);
-  const [error, setError] = useState("");
 
   // validate token when component mounts
   useEffect(() => {
@@ -59,31 +58,13 @@ const ResetPasswordPage = () => {
     validateToken();
   }, [token, router]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const validateForm = () => {
-    if (formData.newPassword !== formData.confirmPassword) {
-      setError("Passwords do not match");
-      return false;
-    }
-
-    return true;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!validateForm()) return;
-
-    setIsLoading(true);
-    setError("");
-
+  const handleResetSubmit = async (
+    values: ResetPasswordConfirmFormValues,
+    {
+      setSubmitting,
+      setFieldError,
+    }: FormikHelpers<ResetPasswordConfirmFormValues>
+  ) => {
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/auth/reset-password/confirm`,
@@ -94,7 +75,7 @@ const ResetPasswordPage = () => {
           },
           body: JSON.stringify({
             token: token,
-            newPassword: formData.newPassword,
+            newPassword: values.newPassword,
           }),
         }
       );
@@ -113,10 +94,10 @@ const ResetPasswordPage = () => {
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "An error occurred";
-      setError(errorMessage);
+      setFieldError("newPassword", errorMessage);
       toast.error(errorMessage);
     } finally {
-      setIsLoading(false);
+      setSubmitting(false);
     }
   };
 
@@ -169,51 +150,57 @@ const ResetPasswordPage = () => {
           </CardHeader>
 
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {error && (
-                <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
-                  <p>{error}</p>
-                </div>
+            <Formik
+              initialValues={{ newPassword: "", confirmPassword: "" }}
+              validationSchema={resetPasswordConfirmSchema}
+              onSubmit={handleResetSubmit}
+            >
+              {({ isSubmitting }) => (
+                <Form className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="newPassword">New Password</Label>
+                    <Field
+                      as={Input}
+                      id="newPassword"
+                      name="newPassword"
+                      type="password"
+                      placeholder="Enter your new password"
+                    />
+                    <ErrorMessage
+                      name="newPassword"
+                      component="div"
+                      className="text-sm text-red-600"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmPassword">Confirm Password</Label>
+                    <Field
+                      as={Input}
+                      id="confirmPassword"
+                      name="confirmPassword"
+                      type="password"
+                      placeholder="Confirm your new password"
+                    />
+                    <ErrorMessage
+                      name="confirmPassword"
+                      component="div"
+                      className="text-sm text-red-600"
+                    />
+                  </div>
+
+                  <Button
+                    type="submit"
+                    variant="blue"
+                    size="lg"
+                    className="w-full"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? "Resetting Password..." : "Reset Password"}
+                  </Button>
+                </Form>
               )}
-
-              <div className="space-y-2">
-                <Label htmlFor="newPassword">New Password</Label>
-                <Input
-                  id="newPassword"
-                  name="newPassword"
-                  type="password"
-                  value={formData.newPassword}
-                  onChange={handleInputChange}
-                  placeholder="Enter your new password"
-                  required
-                  minLength={6}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
-                <Input
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  type="password"
-                  value={formData.confirmPassword}
-                  onChange={handleInputChange}
-                  placeholder="Confirm your new password"
-                  required
-                  minLength={6}
-                />
-              </div>
-
-              <Button
-                type="submit"
-                variant="blue"
-                size="lg"
-                className="w-full"
-                disabled={isLoading}
-              >
-                {isLoading ? "Resetting Password..." : "Reset Password"}
-              </Button>
-            </form>
+            </Formik>
           </CardContent>
         </Card>
       </div>

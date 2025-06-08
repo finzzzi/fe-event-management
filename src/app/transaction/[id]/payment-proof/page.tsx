@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { use } from "react";
+import { use, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,6 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { transactionService } from "@/services/transactionService";
 import { toast } from "sonner";
+import { Formik, Form, ErrorMessage, FormikHelpers } from "formik";
+import {
+  paymentProofSchema,
+  PaymentProofFormValues,
+} from "@/lib/validationSchemas";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -18,43 +22,18 @@ const PaymentProofPage = ({ params }: Props) => {
   const { id } = use(params);
   const router = useRouter();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      // validate file type
-      const allowedTypes = [
-        "image/jpeg",
-        "image/jpg",
-        "image/png",
-        "application/pdf",
-      ];
-      if (!allowedTypes.includes(file.type)) {
-        toast.error("Please select a valid image file (JPEG or PNG) or PDF");
-        return;
-      }
-
-      // validate file size (max 5MB)
-      const maxSize = 5 * 1024 * 1024;
-      if (file.size > maxSize) {
-        toast.error("File size must be less than 5MB");
-        return;
-      }
-
-      setSelectedFile(file);
-    }
-  };
-
-  const handleUpload = async () => {
-    if (!selectedFile) {
-      toast.error("Please select a file first");
-      return;
-    }
-
-    setIsUploading(true);
+  const handlePaymentProofSubmit = async (
+    values: PaymentProofFormValues,
+    { setSubmitting, setFieldError }: FormikHelpers<PaymentProofFormValues>
+  ) => {
     try {
-      await transactionService.uploadPaymentProof(id, selectedFile);
+      if (!values.paymentProof) {
+        setFieldError("paymentProof", "Please select a file first");
+        return;
+      }
+
+      await transactionService.uploadPaymentProof(id, values.paymentProof);
       toast.success(
         <div className="flex flex-col">
           <span>Payment proof uploaded.</span>
@@ -62,19 +41,20 @@ const PaymentProofPage = ({ params }: Props) => {
         </div>
       );
 
-      // redirect to home
+      // redirect to ticket page
       setTimeout(() => {
-        router.push("/");
+        router.push("/ticket");
       }, 2000);
     } catch (error) {
       console.error("Failed to upload payment proof:", error);
-      toast.error(
+      const errorMessage =
         error instanceof Error
           ? error.message
-          : "Failed to upload payment proof"
-      );
+          : "Failed to upload payment proof";
+      setFieldError("paymentProof", errorMessage);
+      toast.error(errorMessage);
     } finally {
-      setIsUploading(false);
+      setSubmitting(false);
     }
   };
 
@@ -105,60 +85,87 @@ const PaymentProofPage = ({ params }: Props) => {
                 </div>
               </div>
 
-              {/* File Input */}
-              <div className="space-y-4">
-                <Label htmlFor="payment-proof" className="text-sm font-medium">
-                  Select Payment Proof File:
-                </Label>
-                <Input
-                  id="payment-proof"
-                  type="file"
-                  accept="image/*,.pdf"
-                  onChange={handleFileSelect}
-                  className="cursor-pointer"
-                />
-
-                {/* Selected file info */}
-                {selectedFile && (
-                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-green-700">
-                          Selected: {selectedFile.name}
-                        </p>
-                        <p className="text-xs text-green-600">
-                          Size: {(selectedFile.size / 1024 / 1024).toFixed(2)}{" "}
-                          MB
-                        </p>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSelectedFile(null)}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Upload Button */}
-              <Button
-                onClick={handleUpload}
-                disabled={!selectedFile || isUploading}
-                className="w-full bg-blue-600 hover:bg-blue-700"
-                size="lg"
+              <Formik
+                initialValues={{ paymentProof: null as File | null }}
+                validationSchema={paymentProofSchema}
+                onSubmit={handlePaymentProofSubmit}
               >
-                {isUploading ? (
-                  <>
-                    <div className="animate-spin h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full"></div>
-                    Uploading...
-                  </>
-                ) : (
-                  <>Upload Payment Proof</>
+                {({ isSubmitting, setFieldValue }) => (
+                  <Form className="space-y-4">
+                    {/* File Input */}
+                    <div className="space-y-4">
+                      <Label
+                        htmlFor="payment-proof"
+                        className="text-sm font-medium"
+                      >
+                        Select Payment Proof File:
+                      </Label>
+                      <Input
+                        id="payment-proof"
+                        type="file"
+                        accept="image/*,.pdf"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0] || null;
+                          setFieldValue("paymentProof", file);
+                          setSelectedFile(file);
+                        }}
+                        className="cursor-pointer"
+                      />
+                      <ErrorMessage
+                        name="paymentProof"
+                        component="div"
+                        className="text-sm text-red-600"
+                      />
+
+                      {/* Selected file info */}
+                      {selectedFile && (
+                        <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-green-700">
+                                Selected: {selectedFile.name}
+                              </p>
+                              <p className="text-xs text-green-600">
+                                Size:{" "}
+                                {(selectedFile.size / 1024 / 1024).toFixed(2)}{" "}
+                                MB
+                              </p>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedFile(null);
+                                setFieldValue("paymentProof", null);
+                              }}
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Upload Button */}
+                    <Button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="w-full bg-blue-600 hover:bg-blue-700"
+                      size="lg"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <div className="animate-spin h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full"></div>
+                          Uploading...
+                        </>
+                      ) : (
+                        <>Upload Payment Proof</>
+                      )}
+                    </Button>
+                  </Form>
                 )}
-              </Button>
+              </Formik>
             </CardContent>
           </Card>
         </div>

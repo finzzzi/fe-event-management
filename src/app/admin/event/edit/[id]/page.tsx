@@ -55,6 +55,7 @@ export default function EditEventPage() {
           endDate: data.endDate.slice(0, 10),
         });
       } catch (err) {
+        console.error("Failed to fetch event:", err);
         toast.error("Could not load event");
       }
     };
@@ -109,8 +110,10 @@ export default function EditEventPage() {
 
       toast.success("Event updated!");
       router.push("/event");
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to update event";
+      toast.error(errorMessage);
     }
   };
 

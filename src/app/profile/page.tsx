@@ -8,6 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { Formik, Form, Field, ErrorMessage, FormikHelpers } from "formik";
+import {
+  profileUpdateSchema,
+  ProfileUpdateFormValues,
+} from "@/lib/validationSchemas";
 
 interface UserProfile {
   name: string;
@@ -25,7 +30,6 @@ const UserProfilePage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [updating, setUpdating] = useState(false);
   const [resettingPassword, setResettingPassword] = useState(false);
   const { token, isLoading, redirectToLogin } = useAuth();
 
@@ -68,20 +72,20 @@ const UserProfilePage = () => {
     }
   };
 
-  const updateProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-
+  const handleProfileUpdate = async (
+    values: ProfileUpdateFormValues,
+    { setSubmitting, setFieldError }: FormikHelpers<ProfileUpdateFormValues>
+  ) => {
     try {
-      setUpdating(true);
       setError(null);
 
       const updateData: UpdateProfileData = {
-        name: editForm.name,
-        email: editForm.email,
+        name: values.name,
+        email: values.email,
       };
 
-      if (editForm.password.trim()) {
-        updateData.password = editForm.password;
+      if (values.password && values.password.trim()) {
+        updateData.password = values.password;
       }
 
       const response = await fetch(
@@ -114,18 +118,11 @@ const UserProfilePage = () => {
       const errorMessage =
         err instanceof Error ? err.message : "An error occurred";
       setError(errorMessage);
+      setFieldError("email", errorMessage);
       toast.error(errorMessage);
     } finally {
-      setUpdating(false);
+      setSubmitting(false);
     }
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setEditForm((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
   };
 
   const cancelEdit = () => {
@@ -296,67 +293,90 @@ const UserProfilePage = () => {
               </div>
             ) : (
               // Edit Mode
-              <form onSubmit={updateProfile} className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Name</Label>
-                  <Input
-                    id="name"
-                    name="name"
-                    type="text"
-                    value={editForm.name}
-                    onChange={handleInputChange}
-                    placeholder="Enter your name"
-                    required
-                  />
-                </div>
+              <Formik
+                initialValues={{
+                  name: editForm.name,
+                  email: editForm.email,
+                  password: "",
+                }}
+                validationSchema={profileUpdateSchema}
+                onSubmit={handleProfileUpdate}
+                enableReinitialize
+              >
+                {({ isSubmitting }) => (
+                  <Form className="space-y-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Name</Label>
+                      <Field
+                        as={Input}
+                        id="name"
+                        name="name"
+                        type="text"
+                        placeholder="Enter your name"
+                      />
+                      <ErrorMessage
+                        name="name"
+                        component="div"
+                        className="text-sm text-red-600"
+                      />
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    value={editForm.email}
-                    onChange={handleInputChange}
-                    placeholder="Enter your email"
-                    required
-                  />
-                </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Field
+                        as={Input}
+                        id="email"
+                        name="email"
+                        type="email"
+                        placeholder="Enter your email"
+                      />
+                      <ErrorMessage
+                        name="email"
+                        component="div"
+                        className="text-sm text-red-600"
+                      />
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="password">New Password (Optional)</Label>
-                  <Input
-                    id="password"
-                    name="password"
-                    type="password"
-                    value={editForm.password}
-                    onChange={handleInputChange}
-                    placeholder="Leave blank if you don't want to change password"
-                  />
-                </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="password">New Password (Optional)</Label>
+                      <Field
+                        as={Input}
+                        id="password"
+                        name="password"
+                        type="password"
+                        placeholder="Leave blank if you don't want to change password"
+                      />
+                      <ErrorMessage
+                        name="password"
+                        component="div"
+                        className="text-sm text-red-600"
+                      />
+                    </div>
 
-                <div className="flex gap-3 pt-4">
-                  <Button
-                    type="submit"
-                    disabled={updating}
-                    variant="blue"
-                    size="lg"
-                    className="flex-1"
-                  >
-                    {updating ? "Saving..." : "Save Changes"}
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={cancelEdit}
-                    disabled={updating}
-                    variant="outline"
-                    size="lg"
-                    className="flex-1"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </form>
+                    <div className="flex gap-3 pt-4">
+                      <Button
+                        type="submit"
+                        disabled={isSubmitting}
+                        variant="blue"
+                        size="lg"
+                        className="flex-1"
+                      >
+                        {isSubmitting ? "Saving..." : "Save Changes"}
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={cancelEdit}
+                        disabled={isSubmitting}
+                        variant="outline"
+                        size="lg"
+                        className="flex-1"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </Form>
+                )}
+              </Formik>
             )}
           </CardContent>
         </Card>
