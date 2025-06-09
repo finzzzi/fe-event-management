@@ -51,7 +51,7 @@ export default function ReportsPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (isInitialized) return;
+    if (!isInitialized) return;
 
     if (!token || !user || user.role !== "EventOrganizer") {
       setLoading(false);
@@ -85,10 +85,10 @@ export default function ReportsPage() {
     };
 
     fetchReportData();
-  }, [token, isInitialized]);
+  }, [token, user, isInitialized]);
 
   // Auth loading state
-  if (!isInitialized || authLoading) {
+  if (!isInitialized || authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner size="large" />
@@ -101,7 +101,15 @@ export default function ReportsPage() {
     return <AccessDenied />;
   }
 
-  if (!reportData) {
+  const hasData =
+    reportData &&
+    (reportData.daily.length > 0 ||
+      reportData.monthly.length > 0 ||
+      reportData.yearly.length > 0 ||
+      reportData.eventDistribution.length > 0 ||
+      reportData.topEvents.length > 0);
+
+  if (!hasData) {
     return (
       <div className="max-w-6xl mx-auto p-6">
         <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
