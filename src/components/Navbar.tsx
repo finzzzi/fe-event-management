@@ -1,7 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Menu, X, Search, User, Ticket, UserCheck, Plus } from "lucide-react";
+import {
+  Menu,
+  X,
+  Search,
+  User,
+  Ticket,
+  UserCheck,
+  Plus,
+  LayoutDashboard,
+} from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -194,6 +203,17 @@ const Navbar = () => {
                       Profile
                     </Link>
                   </DropdownMenuItem>
+                  {userData?.role === "EventOrganizer" && (
+                    <DropdownMenuItem asChild>
+                      <Link
+                        href="/admin/event"
+                        className="flex items-center gap-2"
+                      >
+                        <LayoutDashboard size={16} />
+                        Dashboard
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem asChild>
                     {userData?.role === "EventOrganizer" ? (
                       <Link
